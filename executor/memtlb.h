@@ -113,8 +113,10 @@ private:
       phys = pte >> size;
     phys = (phys << size) | (virt & ((1 << size) - 1));
 
-    // clear XD/NX bit on 64 bit host
-    if (features & FEATURE_PAE && sizeof(phys) == 8) phys &= ~(1ULL << 63);
+    // The upper bits might contain OS specific data which should not
+    // propagate into the TLB. (vmmon)
+    // This includes the XD/NX bit when using PAE on 64 bit host (ssumpf).
+    phys &= (1ULL << PHYS_ADDR_SIZE) - 1;
 
     return _fault;
   }
