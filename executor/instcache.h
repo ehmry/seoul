@@ -241,14 +241,14 @@ class InstructionCache : public MemTlb
   {
     fetch_code(_entry, 1);
     unsigned char  modrm = _entry->data[_entry->inst_len - 1];
-    unsigned short info = modrminfo[(_entry->address_size == 2) << 5 | (modrm >> 3) & 0x18 | modrm & 0x7];
+    unsigned short info = modrminfo[((_entry->address_size == 2) << 5) | ((modrm >> 3) & 0x18) | (modrm & 0x7)];
 
     // sib byte
     if (info & MRM_SIB)
       {
 	fetch_code(_entry, 1);
 	if ((modrm & 0xc7) == 0x4 && (_entry->data[_entry->inst_len - 1] & 0x7) == 5) info |= MRM_DIS32 | MRM_NOBASE;
-	info = info & ~0xff | _entry->data[_entry->inst_len - 1];
+	info = (info & ~0xff) | _entry->data[_entry->inst_len - 1];
 	if (((info >> 3) & 0xf) == 4) info |= MRM_NOINDEX;
 	if (~info & MRM_NOBASE && ((info & 0xf) == 4 || (info & 0xf) == 5)) info |= MRM_SS;
       }
@@ -546,7 +546,7 @@ public:
 	    else
 	      {
 		if ((old_info & _fault & 0x80000700) == 0x80000300)
-		  if ((0x3c01 & (1 << (old_info & 0xff))) && (0x3c01 & (1 << (_fault & 0xff)))
+		  if (((0x3c01 & (1 << (old_info & 0xff))) && (0x3c01 & (1 << (_fault & 0xff))))
 		      || (old_info == 0x80000b0e && (0x7c01 & (1 << (_fault & 0xff)))))
 		    {
 		      _fault = 0x80000b08;

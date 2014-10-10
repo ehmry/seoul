@@ -149,8 +149,8 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 	  modifiers = 0x12;
 	if (value & KBFLAG_RSHIFT && (key == 0x4a || ~value & KBFLAG_NUM))
 	  modifiers = value & KBFLAG_RELEASE ? 0x59 | (modifiers << 8) : 0x5900 | modifiers;
-	if (key == 0x7c && !(value & (KBFLAG_RSHIFT | KBFLAG_LSHIFT | KBFLAG_RCTRL | KBFLAG_LCTRL))
-	    || !(value & (KBFLAG_RSHIFT | KBFLAG_LSHIFT)) && value & KBFLAG_NUM && key != 0x4a)
+	if ((key == 0x7c && !(value & (KBFLAG_RSHIFT | KBFLAG_LSHIFT | KBFLAG_RCTRL | KBFLAG_LCTRL)))
+	    || (!(value & (KBFLAG_RSHIFT | KBFLAG_LSHIFT)) && value & KBFLAG_NUM && key != 0x4a))
 	  {
 	    value ^= KBFLAG_RELEASE;
 	    modifiers = 0x12;

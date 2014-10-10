@@ -46,7 +46,7 @@ typedef genode_uint32_t  uint32;
 typedef genode_uint16_t  uint16;
 typedef genode_uint8_t   uint8;
 typedef Genode::addr_t   mword;
-typedef Genode::size_t   uintptr_t;
+typedef mword            uintptr_t;
 
 typedef genode_int64_t int64;
 typedef genode_int32_t int32;

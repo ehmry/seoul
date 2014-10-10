@@ -191,11 +191,13 @@ public:
     if (!params_used)
       return true;
     if (read) {
-      for (unsigned i=0; i < params_used; i++)
-	if (address == ((shmem.params[i].src.seg << 4) + shmem.params[i].src.ofs) && shmem.params[i].count == count) {
-	  address = (shmem.params[i].dst.seg << 4) + shmem.params[i].dst.ofs;
-	  return true;
-	}
+      for (unsigned i=0; i < params_used; i++) {
+        unsigned long src_adr = (shmem.params[i].src.seg << 4) + shmem.params[i].src.ofs;
+        if (address == src_adr && shmem.params[i].count == count) {
+          address = (shmem.params[i].dst.seg << 4) + shmem.params[i].dst.ofs;
+          return true;
+        }
+      }
       add_param(address, count, true);
       return false;
     }

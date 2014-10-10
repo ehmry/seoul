@@ -86,7 +86,7 @@ class AcpiController : public StaticReceiver<AcpiController>, public BiosCommon
             _gpe1_sts |= (0xff00 & (1 << event_nr)) >> 8;
 
             // If this event is masked by the guest, then just ignore it
-            if ((0 == _gpe0_sts & _gpe0_en) || (0 == _gpe1_sts & _gpe1_en))
+            if (!(_gpe0_sts & _gpe0_en) || !(_gpe1_sts & _gpe1_en))
                 return;
 
             // Send the guest an SCI

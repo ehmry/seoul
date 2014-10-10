@@ -154,7 +154,7 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
     // we ignore the overflow bit as everybody does
     _posx += ((msg.data >> 16) & 0xff) - ((msg.data >> 4) & 0x100);
     _posy += ((msg.data >> 24) & 0xff) - ((msg.data >> 5) & 0x100);
-    _status = _status & 0xf8 | (msg.data >> 8) & 0x7;
+    _status = (_status & 0xf8) | ((msg.data >> 8) & 0x7);
     update_packet();
 
     return true;

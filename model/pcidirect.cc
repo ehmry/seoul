@@ -156,7 +156,7 @@ private:
 	if (_mb.bus_hostop.send(msg) && msg.ptr)
 	  _barinfo[i].ptr = msg.ptr + (bases[i] & 0x10);
 	else
-	  Logging::panic("can not map IOMEM region %lx+%lx %p", msg.value, msg.len, msg.ptr);
+	  Logging::panic("can not map IOMEM region %lx+%zx %p", msg.value, msg.len, msg.ptr);
       }
     }
   }
@@ -359,11 +359,12 @@ private:
 
       // Check whether something bad actually happened and warn the
       // user.
-      if (msg.count != _barinfo[i].size >> 12)
+      if (msg.count != _barinfo[i].size >> 12) {
 	if (_map_mode == MAP_MODE_UNSAFE)
 	  Logging::printf(" *** UNSAFE MAPPING OF BAR%u: POTENTIAL SECURTIY RISK ***\n", i);
 	else
 	  Logging::printf(" *** INCOMPLETE MAPPING OF BAR%u: PERFORMANCE PROBLEM ***\n", i);
+      }
 
       if (msg.count == 0) return false;
 

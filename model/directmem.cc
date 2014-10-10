@@ -33,7 +33,7 @@ class DirectMemDevice : public StaticReceiver<DirectMemDevice>
   bool  receive(MessageMemRegion &msg)
   {
     if (!in_range(msg.page, _phys >> 12, _size >> 12))  return false;
-    Logging::printf("%s: %p base %lx+%lx\n", __PRETTY_FUNCTION__, _ptr, _phys, _size);
+    Logging::printf("%s: %p base %lx+%zx\n", __PRETTY_FUNCTION__, _ptr, _phys, _size);
     msg.start_page = _phys >> 12;
     msg.count = _size >> 12;
     msg.ptr   = _ptr;
@@ -55,7 +55,7 @@ class DirectMemDevice : public StaticReceiver<DirectMemDevice>
 
   DirectMemDevice(char *ptr, uintptr_t phys, size_t size) : _ptr(ptr), _phys(phys), _size(size)
   {
-    Logging::printf("DirectMem: %p base %lx+%lx\n", ptr, phys, size);
+    Logging::printf("DirectMem: %p base %lx+%zx\n", ptr, phys, size);
   }
 };
 
@@ -74,7 +74,7 @@ PARAM_HANDLER(mio,
 
   MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, argv[0], 1UL << size);
   if (!mb.bus_hostop.send(msg) || !msg.ptr)
-    Logging::panic("can not map IOMEM region %lx+%lx", msg.value, msg.len);
+    Logging::panic("can not map IOMEM region %lx+%zx", msg.value, msg.len);
 
   DirectMemDevice *dev = new DirectMemDevice(msg.ptr, dest, 1UL << size);
   mb.bus_memregion.add(dev,  DirectMemDevice::receive_static<MessageMemRegion>);

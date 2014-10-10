@@ -51,7 +51,7 @@ int cpl0_test() {
     if ((desc->ar & 0x40c) == 4)  fault |= (0xffff - length) < virt;
 
     // rights check: present, readonly and exec-only segment
-    fault |= ~desc->ar & 0x80 || !write && ((desc->ar & 0xa) == 0x8) || write && (desc->ar & 0xa) != 0x2;
+    fault |= (~desc->ar & 0x80) || (!write && ((desc->ar & 0xa) == 0x8)) || (write && (desc->ar & 0xa) != 0x2);
     if (fault)
       {
 	Logging::printf("%s() #%zx %x+%d desc %x limit %x base %zx esp %x\n", __func__, size_t(desc - &_cpu->es), virt, length, desc->ar, desc->limit, size_t(desc->base), _cpu->esp);
@@ -283,7 +283,7 @@ helper_SDT(SGDT,gd, MTD_GDTR)
 	unsigned mask = 0x3f7fd5L & ~0x30000;
 	// iopl and IF also if not running with CPL==0
 	if (_cpu->cpl()) mask &= ~0x3200;
-	tmp = READ(efl) & ~mask | tmp & mask;
+	tmp = (READ(efl) & ~mask) | (tmp & mask);
 	WRITE(efl);
 	MOVE2(operand_size, _cpu->efl, tmp);
       }
@@ -347,11 +347,11 @@ int calc_flags(unsigned operand_size, void *src, void *dst) {
   };
 
 #define NCHECK(X)  { if (X) break; }
-#define FEATURE(X,Y) { if (feature & (X)) Y; }
+#define FEATURE(X,Y) { if (feature & (X)) { Y; } }
   template<unsigned feature, unsigned operand_size>
   int __attribute__((regparm(3)))  string_helper()
   {
-    while (_entry->address_size == 1 && _cpu->cx || _entry->address_size == 2 && _cpu->ecx || !(_entry->prefixes & 0xff))
+    while ((_entry->address_size == 1 && _cpu->cx) || (_entry->address_size == 2 && _cpu->ecx) || !(_entry->prefixes & 0xff))
       {
 	void *src = &_cpu->eax;
 	void *dst = &_cpu->eax;
@@ -425,7 +425,7 @@ int helper_MOV__EDX__CR0()
   return init();
 }
 
-int helper_LMSW(unsigned short value) { _cpu->cr0 = _cpu->cr0 & ~0xeu | value & 0xfu; _mtr_out |= MTD_CR; return _fault; }
+int helper_LMSW(unsigned short value) { _cpu->cr0 = (_cpu->cr0 & ~0xeu) | (value & 0xfu); _mtr_out |= MTD_CR; return _fault; }
 
 
 
@@ -600,8 +600,8 @@ int set_segment(CpuState::Descriptor *seg, unsigned short sel, bool cplcheck = t
 
       if (!load_gdt_descriptor(desc, sel, false))
 	{
-	  if ((is_ss && ((rpl != desc.dpl() || cplcheck && desc.dpl() != _cpu->cpl()) || ((desc.ar0 & 0x1a) != 0x12)))
-	      || !is_ss && ((((desc.ar0 ^ 0x12) & 0x1a) > 2) || (((desc.ar0 & 0xc) != 0xc) && (rpl > desc.dpl() || cplcheck && _cpu->cpl() > desc.dpl()))))
+	  if ((is_ss && ((rpl != desc.dpl() || (cplcheck && desc.dpl() != _cpu->cpl())) || ((desc.ar0 & 0x1a) != 0x12)))
+	      || (!is_ss && ((((desc.ar0 ^ 0x12) & 0x1a) > 2) || (((desc.ar0 & 0xc) != 0xc) && (rpl > desc.dpl() || (cplcheck && _cpu->cpl() > desc.dpl()))))))
 	    {
 	      Logging::printf("set_segment %zx sel %x eip %x efl %x ar %x dpl %x rpl %x cpl %x\n", size_t(seg - &_cpu->es), sel, _cpu->eip, _cpu->efl, desc.ar0, desc.dpl(), rpl, _cpu->cpl());
 	      GP(sel);
@@ -748,7 +748,7 @@ int helper_IRET()
 int idt_traversal(unsigned event, unsigned error_code)
 {
   assert(event & 0x80000000);
-  assert(event != 0x80000b0e || _cpu->pm() && _cpu->pg());
+  assert(event != 0x80000b0e || (_cpu->pm() && _cpu->pg()));
   _mtr_out |= MTD_RFLAGS | MTD_CS_SS;
 
   // realmode
@@ -816,7 +816,7 @@ int idt_traversal(unsigned event, unsigned error_code)
 		if (helper_PUSH<2>(&old_efl)
 		    || helper_PUSH<2>(&cs_sel)
 		    || helper_PUSH<2>(&_cpu->eip)
-		    || has_errorcode && helper_PUSH<2>(&error_code))
+		    || (has_errorcode && helper_PUSH<2>(&error_code)))
 		  {
 		    _cpu->ss = oldss;
 		    return _fault;
@@ -854,7 +854,7 @@ int idt_traversal(unsigned event, unsigned error_code)
 		    || helper_PUSH<2>(&old_efl)
 		    || helper_PUSH<2>(&cs_sel)
 		    || helper_PUSH<2>(&_cpu->eip)
-		    || has_errorcode && helper_PUSH<2>(&error_code)
+		    || (has_errorcode && helper_PUSH<2>(&error_code))
 		    || set_segment(&_cpu->ds, 0)
 		    || set_segment(&_cpu->es, 0)
 		    || set_segment(&_cpu->fs, 0)

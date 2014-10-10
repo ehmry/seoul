@@ -126,7 +126,7 @@ private:
     bool was_x2apic_mode = x2apic_mode();
 
     // check reserved bits and invalid state transitions
-    if (value & ~mask || (value & 0xc00) == 0x400 || was_x2apic_mode && (value & 0xc00) == 0x800) return false;
+    if (value & ~mask || (value & 0xc00) == 0x400 || (was_x2apic_mode && (value & 0xc00) == 0x800)) return false;
 
     // disabled bit?
     if ((_msr ^ value) & 0x800) {
@@ -206,18 +206,18 @@ private:
     if (event == VCpu::EVENT_LOWEST && x2apic_mode()) return set_error(4);
 
     // self IPIs can only be fixed
-    if (self && event != VCpu::EVENT_FIXED
+    if ((self && event != VCpu::EVENT_FIXED)
 	// we can not send EXTINT and RRD
-	|| event & (VCpu::EVENT_EXTINT | VCpu::EVENT_RRD)
+	|| (event & (VCpu::EVENT_EXTINT | VCpu::EVENT_RRD))
 	//  and INIT deassert messages
-	|| event == VCpu::EVENT_INIT && ~icr & MessageApic::ICR_ASSERT
+	|| (event == VCpu::EVENT_INIT && (~icr & MessageApic::ICR_ASSERT))
 
 	/**
 	 * This is a strange thing in the manual: lowest priority with
 	 * a broadcast shorthand is invalid. But what about physical
 	 * destination mode with dst=0xff?
 	 */
-	|| event == VCpu::EVENT_LOWEST && shorthand == 2)
+	|| (event == VCpu::EVENT_LOWEST && shorthand == 2))
       return false;
 
     // send vector error check
@@ -659,7 +659,7 @@ public:
 	  || msg.cpu->ecx == 0x802
 	  || msg.cpu->ecx == 0x80d
 	  || msg.cpu->ecx == 0x80e
-	  || msg.cpu->edx && msg.cpu->ecx != 0x830) return false;
+	  || (msg.cpu->edx && msg.cpu->ecx != 0x830)) return false;
 
       // self IPI?
       if (msg.cpu->ecx == 0x83f && msg.cpu->eax < 0x100 && !msg.cpu->edx)

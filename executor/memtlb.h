@@ -150,7 +150,7 @@ protected:
 
   int init() {
 
-    _paging_mode = (READ(cr0) & 0x80010000) | READ(cr4) & 0x30 | _msr_efer & 0xc00;
+    _paging_mode = (READ(cr0) & 0x80010000) | (READ(cr4) & 0x30) | (_msr_efer & 0xc00);
 
     // fetch pdpts in leagacy PAE mode
     if ((_paging_mode & 0x80000420) == 0x80000020)

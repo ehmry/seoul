@@ -144,7 +144,7 @@ class KeyboardController : public StaticReceiver<KeyboardController>
     if (check_pwd(value, from_aux))  return;
 
     _ram[RAM_OBF] = value;
-    _ram[RAM_STATUS] = _ram[RAM_STATUS] & ~STATUS_AUXOBF | (from_aux ? STATUS_AUXOBF : STATUS_OBF);
+    _ram[RAM_STATUS] = (_ram[RAM_STATUS] & ~STATUS_AUXOBF) | (from_aux ? STATUS_AUXOBF : STATUS_OBF);
 
     if ((_ram[RAM_STATUS] & STATUS_AUXOBF) == STATUS_AUXOBF   && _ram[RAM_CMDBYTE] & CMD_IRQAUX)
       {
@@ -180,7 +180,7 @@ public:
 	read_all_devices();
       }
     else if (msg.port == _base + 4)
-	msg.value = _ram[RAM_STATUS] & ~STATUS_SYS | _ram[RAM_CMDBYTE] & CMD_SYS;
+	msg.value = (_ram[RAM_STATUS] & ~STATUS_SYS) | (_ram[RAM_CMDBYTE] & CMD_SYS);
     else
       return false;
     return true;
@@ -269,7 +269,7 @@ public:
 	    if (_ram[RAM_SECON])
 	      {
 		_ram[RAM_OBF] = _ram[RAM_SECON];
-		_ram[RAM_STATUS] = _ram[RAM_STATUS] & ~STATUS_AUXOBF | STATUS_OBF;
+		_ram[RAM_STATUS] = (_ram[RAM_STATUS] & ~STATUS_AUXOBF) | STATUS_OBF;
 		if (_ram[RAM_CMDBYTE] & CMD_IRQKBD)
 		  {
 		    MessageIrqLines msg2(MessageIrq::ASSERT_IRQ, _irqkbd);

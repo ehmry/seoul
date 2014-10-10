@@ -365,7 +365,7 @@ public:
 	switch (_index)
 	  {
 	  case 0x0:
-	    _ram[_index] = _ram[_index] & 0x80 | msg.value & 0x7f;
+	    _ram[_index] = (_ram[_index] & 0x80) | (msg.value & 0x7f);
 	    break;
 	  case 0xa:
 	    {

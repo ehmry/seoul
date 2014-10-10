@@ -145,7 +145,7 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
       case 0x03: // write
 	if (check_drive(msg,  disk_nr))
 	  {
-	    unsigned cylinders = msg.cpu->ch | (msg.cpu->cl << 2) & 0x300;
+	    unsigned cylinders = msg.cpu->ch | ((msg.cpu->cl << 2) & 0x300);
 	    unsigned heads =  msg.cpu->dh;
 	    unsigned sectors = msg.cpu->cl & 0x3f;
 	    unsigned blocknr;

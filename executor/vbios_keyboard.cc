@@ -67,7 +67,7 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
     value = value & ~KBFLAG_NUM;
 
     // handle both shifts the same
-    if (value & KBFLAG_RSHIFT) value = value & ~KBFLAG_RSHIFT | KBFLAG_LSHIFT;
+    if (value & KBFLAG_RSHIFT) value = (value & ~KBFLAG_RSHIFT) | KBFLAG_LSHIFT;
     for (unsigned i=0; i < sizeof(bios_key_map) / sizeof(bios_key_map[0]); i++)
       if (bios_key_map[i].keycode == value)
 	return bios_key_map[i].code;

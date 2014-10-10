@@ -445,7 +445,7 @@ public:
     case CpuMessage::TYPE_CPUID:    return handle_cpuid(msg);
     case CpuMessage::TYPE_CPUID_WRITE:
       {
-	unsigned reg = (msg.nr << 4) | msg.reg | msg.nr & 0x80000000;
+	unsigned reg = (msg.nr << 4) | msg.reg | (msg.nr & 0x80000000);
 	unsigned old;
 	if (CPUID_read(reg, old) && CPUID_write(reg, (old & msg.mask) | msg.value)) {
 	  CPUID_read(reg, old);

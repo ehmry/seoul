@@ -56,7 +56,7 @@ int helper_SYSEXIT()
 int helper_CLI () {
   if (_cpu->cpl() <= _cpu->iopl())
     _cpu->efl &= ~EFL_IF;
-  else if (_cpu->v86() && (_cpu->cr4 & 1) || (!_cpu->v86() && _cpu->pm() && _cpu->cpl() == 3 && (_cpu->cr4 & 2)))
+  else if ((_cpu->v86() && (_cpu->cr4 & 1)) || (!_cpu->v86() && _cpu->pm() && _cpu->cpl() == 3 && (_cpu->cr4 & 2)))
     _cpu->efl &= ~EFL_VIF;
   else
     GP0;
@@ -74,7 +74,7 @@ int helper_STI() {
     if (~_cpu->efl & EFL_IF) _cpu->intr_state |= 1;
     _cpu->efl |= EFL_IF;
   }
-  else if (_cpu->v86() && (_cpu->cr4 & 1) || (!_cpu->v86() && _cpu->pm() && _cpu->cpl() == 3 && (_cpu->cr4 & 2)))
+  else if ((_cpu->v86() && (_cpu->cr4 & 1)) || (!_cpu->v86() && _cpu->pm() && _cpu->cpl() == 3 && (_cpu->cr4 & 2)))
     {
       if (_cpu->efl & EFL_VIP) GP0;
       _cpu->efl |= EFL_VIF;

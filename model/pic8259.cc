@@ -236,7 +236,7 @@ class PicDevice : public StaticReceiver<PicDevice>
 
   bool  receive(MessageIOIn &msg)
   {
-    if (!in_range(msg.port, _base, 2) && msg.port != _elcr_base || msg.type != MessageIOIn::TYPE_INB)
+    if ((!in_range(msg.port, _base, 2) && msg.port != _elcr_base) || msg.type != MessageIOIn::TYPE_INB)
       return false;
 
     if (msg.port == _elcr_base)
@@ -262,7 +262,7 @@ class PicDevice : public StaticReceiver<PicDevice>
    */
   bool  receive(MessageIOOut &msg)
   {
-      if (!in_range(msg.port, _base, 2) && msg.port != _elcr_base || msg.type != MessageIOOut::TYPE_OUTB)
+      if ((!in_range(msg.port, _base, 2) && msg.port != _elcr_base) || msg.type != MessageIOOut::TYPE_OUTB)
 	return false;
 
       if (msg.port == _elcr_base)

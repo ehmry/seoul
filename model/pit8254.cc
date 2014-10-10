@@ -233,11 +233,12 @@ class PitCounter : public StaticReceiver<PitCounter>
 
     if (feature(FCOUNTDOWN))
       return _clock.clock(FREQ) >= _start;
-    if (feature(FPERIODIC))
+    if (feature(FPERIODIC)) {
       if (!feature(FSQUARE_WAVE))
-	return get_counter() != 1;
+        return get_counter() != 1;
       else
-	return ((_clock.clock(FREQ) - _start + _initial) % _initial)*2 < _initial;
+        return ((_clock.clock(FREQ) - _start + _initial) % _initial)*2 < _initial;
+    }
     return _clock.clock(FREQ) != _start;
   }
 

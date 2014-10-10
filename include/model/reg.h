@@ -18,7 +18,7 @@
 #define VMM_DEFINE_REG(NAME, OFFSET, VALUE, MASK) private: unsigned NAME; public: static const unsigned NAME##_offset = OFFSET; static const unsigned NAME##_mask   = MASK; static const unsigned NAME##_reset  = VALUE;
 #define VMM_REG_RO(NAME, OFFSET, VALUE) VMM_REG(NAME, OFFSET, static const unsigned NAME = VALUE;, value = VALUE; , break; , )
 #define VMM_REG_RW(NAME, OFFSET, VALUE, MASK, WRITE_CALLBACK) VMM_REG(NAME, OFFSET, VMM_DEFINE_REG(NAME, OFFSET, VALUE, MASK) , value = NAME; , if (!MASK) return false; if (strict && value & ~MASK) return false; NAME = (NAME & ~MASK) | (value & MASK); WRITE_CALLBACK; , NAME=VALUE;)
-#define VMM_REG_WR(NAME, OFFSET, VALUE, MASK, RW1S, RW1C, WRITE_CALLBACK) VMM_REG(NAME, OFFSET, VMM_DEFINE_REG(NAME, OFFSET, VALUE, MASK), value = NAME; ,  if (!MASK) return false; unsigned oldvalue = NAME; value = value & ~RW1S | ( value | oldvalue) & RW1S; value = value & ~RW1C | (~value & oldvalue) & RW1C; NAME = (NAME & ~MASK) | (value & MASK); WRITE_CALLBACK; , NAME = VALUE;)
+#define VMM_REG_WR(NAME, OFFSET, VALUE, MASK, RW1S, RW1C, WRITE_CALLBACK) VMM_REG(NAME, OFFSET, VMM_DEFINE_REG(NAME, OFFSET, VALUE, MASK), value = NAME; ,  if (!MASK) return false; unsigned oldvalue = NAME; value = (value & ~RW1S) | ((value | oldvalue) & RW1S); value = (value & ~RW1C) | ((~value & oldvalue) & RW1C); NAME = (NAME & ~MASK) | (value & MASK); WRITE_CALLBACK; , NAME = VALUE;)
 #define VMM_REGSET(NAME, ...) private: __VA_ARGS__
 #define VMM_REG(NAME, OFFSET, MEMBER, READ, WRITE, RESET) MEMBER
 #include VMM_REGBASE

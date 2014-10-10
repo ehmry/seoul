@@ -138,13 +138,13 @@ private:
       return;
     }
 
-    _status = _status  & ~0x81 | 0x80;
+    _status = (_status & ~0x81) | 0x80;
     _bufferoffset = 0;
     memset(_buffer, 0xff, 512);
     DmaDescriptor dma = { _baddr, 512};
     MessageDisk msg(MessageDisk::DISK_READ, _disknr, 0, sector, 1, &dma, 0, ~0ul);
     if (!_bus_disk.send(msg)) {
-      _status = _status  & ~0x80 | 0x1;
+      _status = (_status  & ~0x80) | 0x1;
       _error  |= 1<<5; // device fault
       return;
     }
@@ -174,13 +174,13 @@ private:
       }
       build_identify_buffer(reinterpret_cast<unsigned short *>(_buffer));
       _bufferoffset = 0;
-      _status = _status  & ~0x89 | 0x8;
+      _status = (_status & ~0x89) | 0x8;
       _error  = 0;
       update_irq(true);
       break;
     case 0xa1: // packet identify
     case 0xc6: // multiple count
-      _status = _status  & ~0x89 | 1;
+      _status = (_status & ~0x89) | 1;
       _error |= 4; // abort
       update_irq(true);
       break;
@@ -212,7 +212,7 @@ private:
     switch (_command) {
     case 0x20: // READ_SECTOR
     case 0x24: // READ_SECTOR_EXT
-      _status = _status & ~0x80 | 0x8; // we have data
+      _status = (_status & ~0x80) | 0x8; // we have data
 
       // increment sector and decrement count
       set_sector(get_sector(_command == 0x24)+1);

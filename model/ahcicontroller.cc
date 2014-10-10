@@ -81,7 +81,7 @@ public:
 	if (_need_initial_fis)
 	  {
 	    // update signature
-	    PxSIG = fis[1] << 8 | fis[3] & 0xff;
+	    PxSIG = fis[1] << 8 | (fis[3] & 0xff);
 	    // set PxSTSS since a device is available
 	    PxSSTS = (PxSSTS & ~0xfff) | 0x113;
 	    _need_initial_fis = false;

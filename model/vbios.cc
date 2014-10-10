@@ -50,7 +50,7 @@ public:
   bool receive(CpuMessage &msg) {
     if (msg.type != CpuMessage::TYPE_SINGLE_STEP) return false;
     CpuState *cpu = msg.cpu;
-    if (cpu->pm() && !cpu->v86()
+    if ((cpu->pm() && !cpu->v86())
 	|| !in_range(cpu->cs.base + cpu->eip, BIOS_BASE, BIOS_MAX_VECTOR)
 	|| cpu->inj_info & 0x80000000) return false;
 
@@ -84,7 +84,7 @@ public:
 	cpu->eip    = iret_frame[0];
 	cpu->esp   += 6;
 	// we take some flags from the user-level
-	cpu->efl    = cpu->efl & ~0x300 | (iret_frame[2]  & 0x300);
+	cpu->efl    = (cpu->efl & ~0x300) | (iret_frame[2]  & 0x300);
 	msg.mtr_out |= MTD_RFLAGS | MTD_RSP | MTD_RIP_LEN | MTD_CS_SS;
       }
     }

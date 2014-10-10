@@ -57,7 +57,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
     _status = _status & ~0x8;
 
     unsigned d2h[5];
-    d2h[0] = _error << 24 | _status << 16 | 0x4000 | _regs[0] & 0x0f00 | 0x34;
+    d2h[0] = _error << 24 | _status << 16 | 0x4000 | (_regs[0] & 0x0f00) | 0x34;
     d2h[1] = _regs[1];
     d2h[2] = _regs[2];
     d2h[3] = _regs[3] & 0xffff;
@@ -74,13 +74,13 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
     unsigned psf[5];
 
     // move from BSY to DRQ
-    _status = _status & ~0x80 | 0x8;
+    _status = (_status & ~0x80) | 0x8;
 
     memset(psf, 0, sizeof(psf));
-    psf[0] = _error << 24 | _status << 16 | (irq ? 0x4000 : 0) | 0x2000 | _regs[0] & 0x0f00 | 0x5f;
+    psf[0] = _error << 24 | _status << 16 | (irq ? 0x4000 : 0) | 0x2000 | (_regs[0] & 0x0f00) | 0x5f;
     psf[1] = _regs[1];
     psf[2] = _regs[2];
-    psf[3] = _status << 24 | _regs[3] & 0xffff;
+    psf[3] = _status << 24 | (_regs[3] & 0xffff);
     psf[4] = length;
     _peer->receive_fis(5, psf);
   }
@@ -165,7 +165,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
       {
 	len = (_regs[3] & 0xffff) << 9;
 	if (!len) len = 0x10000 << 9;
-	sector = (static_cast<unsigned long long>(_regs[2] & 0xffffff) << 24) | _regs[1] & 0xffffff;
+	sector = (static_cast<unsigned long long>(_regs[2] & 0xffffff) << 24) | (_regs[1] & 0xffffff);
       }
     else
       {
@@ -206,9 +206,9 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	while (transfer & 0x1ff)
 	  {
 	    assert(dmacount);
-	    if (_dma[dmacount-1].bytecount > transfer & 0x1ff)
+	    if (_dma[dmacount-1].bytecount > (transfer & 0x1ff))
 	      {
-		lastoffset = _dma[dmacount-1].bytecount - transfer & 0x1ff;
+		lastoffset = _dma[dmacount-1].bytecount - (transfer & 0x1ff);
 		transfer &= ~0x1ff;
 	      }
 	    else
@@ -287,10 +287,10 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	{
 	  // some idiot has switched feature and sector count regs in this case!
 	  unsigned feature = _regs[3] & 0xffff;
-	  unsigned count = (_regs[0] >> 24) | (_regs[2] >> 16) & 0xff00;
-	  _regs[3] = _regs[3] & 0xffff0000 | count;
-	  _regs[0] = _regs[0] & 0x00ffffff | (feature << 24);
-	  _regs[2] = _regs[2] & 0x00ffffff | (feature << 16) & 0xff000000;
+	  unsigned count = (_regs[0] >> 24) | ((_regs[2] >> 16) & 0xff00);
+	  _regs[3] = (_regs[3] & 0xffff0000) | count;
+	  _regs[0] = (_regs[0] & 0x00ffffff) | (feature << 24);
+	  _regs[2] = (_regs[2] & 0x00ffffff) | ((feature << 16) & 0xff000000);
 	  send_dma_setup_fis(read);
 	  readwrite_sectors(read, true);
 	}
