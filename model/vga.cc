@@ -349,7 +349,8 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	    // unsupported
 	    break;
 	  default:
-	    return handle_vesa(msg, cpu);
+	    if (!handle_vesa(msg, cpu))
+	      return false;
 	  }
       }
     //DEBUG(cpu);
