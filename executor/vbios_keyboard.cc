@@ -27,7 +27,7 @@
  */
 class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public BiosCommon
 {
-  Motherboard *_hostmb;
+  unsigned _hostkeyboard;
 
   /**
    * Converts our internal keycode format into the BIOS one.
@@ -111,9 +111,7 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
    */
   bool handle_int09(CpuState *cpu)
   {
-    MessageIrq msg(MessageIrq::ASSERT_IRQ, 1);
-    _hostmb->bus_hostirq.send(msg);
-    return true;
+    return false;
   }
 
 
@@ -179,8 +177,7 @@ public:
    */
   bool  receive(MessageInput &msg)
   {
-    if (msg.device == 0x10) {
-
+    if (msg.device == _hostkeyboard) {
       update_status(msg.data);
       unsigned value = keycode2bios(msg.data);
       unsigned short next  = read_bda(0x1a);
@@ -197,7 +194,6 @@ public:
 	}
       return true;
     }
-    Logging::printf("%s() ignored %x %x\n", __PRETTY_FUNCTION__, msg.device, msg.data);
     return false;
   }
 
@@ -245,12 +241,6 @@ public:
     switch(msg.irq) {
     case 0x09:  return handle_int09(msg.cpu);
     case 0x16:  return handle_int16(msg);
-    case BIOS_RESET_VECTOR:
-      {
-	MessageLegacy msg2(MessageLegacy::RESET);
-	_hostmb->bus_legacy.send(msg2);
-	return false;
-      }
     default:    return false;
     }
   }
@@ -267,24 +257,16 @@ public:
   }
 
 
-  VirtualBiosKeyboard(Motherboard &mb) : BiosCommon(mb) {
-
-    // create hostmb and hostkeyb
-    _hostmb = new Motherboard(mb.clock(), mb.hip());
-    _hostmb->bus_input.add(this,   receive_static<MessageInput>);
-    _hostmb->bus_hostop .add(this, receive_static<MessageHostOp>);
-    _hostmb->bus_hwioin .add(this, receive_static<MessageHwIOIn>);
-    _hostmb->bus_hwioout.add(this, receive_static<MessageHwIOOut>);
+  VirtualBiosKeyboard(Motherboard &mb, unsigned hk) : BiosCommon(mb), _hostkeyboard(hk) {
+    _mb.bus_input.add(this,   receive_static<MessageInput>);
     _mb.bus_bios        .add(this, receive_static<MessageBios>);
     _mb.bus_discovery   .add(this, receive_static<MessageDiscovery>);
-    _hostmb->handle_arg("hostkeyb:0x10,0x60,1,,1");
-
-
   }
 };
 
 PARAM_HANDLER(vbios_keyboard,
-	      "vbios_keyboard - provide keyboard related virtual BIOS functions.")
+	      "vbios_keyboard:hostkeyboard - provide keyboard related virtual BIOS functions. Gets input from the given hostkeyboard.",
+	      "Example: 'vbios_keyboard:0x17'")
 {
-  new VirtualBiosKeyboard(mb);
+  new VirtualBiosKeyboard(mb, argv[0]);
 }
