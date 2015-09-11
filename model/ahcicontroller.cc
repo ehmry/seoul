@@ -87,6 +87,9 @@ public:
 	    _need_initial_fis = false;
 	  }
 
+	if (PxIE & 0x1)
+		PxIS |= 1 << 1U;
+
 	// we finished the current command
 	if (~fis[0] & 0x80000 && fis[4])  { // !DRQ && dsf[6]
 	  unsigned mask = 1 << (fis[4] - 1);
@@ -102,12 +105,16 @@ public:
       case 0x41: // dma setup fis
 	assert(fislen == 7);
 	copy_offset = 0;
+	if (PxIE & 0x4)
+		PxIS |= 2 << 1U;
 	break;
       case 0x5f: // pio setup fis
 	assert(fislen == 5);
 	copy_offset = 0x20;
 
 	Logging::printf("PIO setup fis\n");
+	if (PxIE & 0x2)
+		PxIS |= 1 << 1U;
 	break;
       default:
 	Logging::panic("Invalid D2H FIS!");
@@ -209,6 +216,7 @@ VMM_REGSET(AhciPort,
        VMM_REG_RW(PxFB,     0x8, 0, 0xffffff00,)
        VMM_REG_RO(PxFBU,    0xc, 0)
        VMM_REG_WR(PxIS,    0x10, 0, 0xdfc000af, 0, 0xdfc000af, COUNTER_INC("IS");)
+
        VMM_REG_RW(PxIE,    0x14, 0, 0x7dc0007f,)
        VMM_REG_WR(PxCMD,   0x18, 0, 0xf3000011, 0, 0,
 	      // enable FRE
@@ -276,6 +284,8 @@ VMM_REGSET(AhciController,
        VMM_REG_WR(REG_IS,    0x8, 0, 0xffffffff, 0x00000000, 0xffffffff, )
        VMM_REG_RW(REG_PI,    0xc, 1, 0,)
        VMM_REG_RO(REG_VS,   0x10, 0x00010200)
+       VMM_REG_RO(REG_EML,  0x1c, 0x0)
+       VMM_REG_RO(REG_EMC,  0x20, 0x0)
        VMM_REG_RO(REG_CAP2, 0x24, 0x0));
 
 #endif
