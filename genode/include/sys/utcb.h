@@ -98,7 +98,13 @@ struct Utcb
       mword pdpte[4];
 #ifdef __x86_64__
       mword        cr8;
-      mword        : 64;          // reserved
+      mword        : 64;          // reserved (efer)
+      mword        : 64;          // reserved (star)
+      mword        : 64;          // reserved (lstar)
+      mword        : 64;          // reserved (fmask)
+      mword        : 64;          // reserved (kernel_gs_base)
+      uint32       : 32;          // reserved (tpr)
+      uint32       : 32;          // reserved (tpr_threshold)
 #endif
       mword     dr7, sysenter_cs, sysenter_esp, sysenter_eip;
       Descriptor   es, cs, ss, ds, fs, gs;
