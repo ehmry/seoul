@@ -331,7 +331,7 @@ for i in range(len(ccflags)):
     # (see http://gcc.gnu.org/bugzilla/show_bug.cgi?id=46477)
     opcodes += [("j"+ccflag,    ["JMP",   "ASM", "LOADFLAGS", "DIRECTION"],
 		 ['__attribute__((regparm(3))) int (*foo)(InstructionCache *, void *) = helper_JMP_static<[os]>',
-		  'asm volatile ("j%s 1f;call %%P0; 1:" : : "i"(foo))'%(ccflags[i ^ 1])])]
+		  'asm volatile ("j%s 1f;call %%P0; 1:" : : "ic"(foo))'%(ccflags[i ^ 1])])]
 opcodes += [(x, [x[-1] == "b" and "BYTE", "HAS_OS"], [
             "unsigned dummy",
 	    "tmp_dst = cache->get_reg32((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7)",
@@ -342,7 +342,7 @@ def add_helper(l, flags, params):
     for x in l:
 	name = reduce(lambda x,y: x.replace(y, "_"), "% ,", x.upper())
 	if "NO_OS" not in flags: name += "<[os]>"
-	opcodes.append((x, flags, ["cache->helper_%s(%s)"%(name, params or "")]))
+	opcodes.append((x, flags, ["\ncache->helper_%s(%s)"%(name, params or "")]))
 add_helper(["push", "lret", "ret"],                              ["DIRECTION"], "tmp_src")
 add_helper(["int", "aad", "aam"],                                ["NO_OS"], "*reinterpret_cast<unsigned char *>(tmp_src)")
 add_helper(["ljmp", "lcall", "call", "jmp",  "jecxz", "loop", "loope", "loopne"],
@@ -408,7 +408,7 @@ opcodes += [("mov %es,%edx", ["MODRM", "DROP1"], [
 	    "move<[os]>(tmp_dst, &(dsc->sel))"]),
 	    ("mov %edx,%es", ["MODRM", "DROP1", "DIRECTION"], [
 	    "if (((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7) == 2) cache->_cpu->intr_state |= 2",
-	    "cache->set_segment(&cache->_cpu->es + ((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7), *reinterpret_cast<unsigned short *>(tmp_src))"]),
+	    "\ncache->set_segment(&cache->_cpu->es + ((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7), *reinterpret_cast<unsigned short *>(tmp_src))"]),
 	    ("pusha", [], ["for (unsigned i=0; i<8; i++) {",
                            "if (i == 4) { if (cache->helper_PUSH<[os]>(&cache->_oesp)) return; }"
                            "else if (cache->helper_PUSH<[os]>(cache->get_reg32(i))) return; }"]),
