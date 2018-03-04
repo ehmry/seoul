@@ -21,6 +21,8 @@
 
 struct Screen
 {
+  static void vga_updated();
+
   /**
    * Put a single char to the VGA monitor.
    */
@@ -46,12 +48,17 @@ struct Screen
 	visible = true;
       }
 
+    bool const scroll = (pos >= 25 * 80);
+
     // scroll?
-    if (pos >= 25*80) {
+    if (scroll) {
       memmove(base, base + 80, 24*80*2);
       pos = 24*80;
       for (unsigned i = 0; i < 80; i++) base[pos + i] = 0x0700;
     }
     if (visible) base[pos++] =  value;
+
+    if (scroll || visible)
+      vga_updated();
   }
 };
