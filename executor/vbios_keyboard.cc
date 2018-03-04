@@ -131,41 +131,43 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
       {
       case 0x10: // get extended keystroke
       case 0x00: // get keystroke
-	{
-	  // XXX For AH=0x00 we need to discard extended keystrokes.
-	  if (first != next)
-	    {
-	      cpu->ax = read_bda(next);
-	      next += 2;
-	      if (next > end)
-		next = start;
-	      write_bda(0x1a, next, 2);
-	    }
-	  else
-	    // we should block here until the next IRQ arives, but we return a zero keycode instead
-	    cpu->ax = 0;
-	}
-	break;
+        {
+          // XXX For AH=0x00 we need to discard extended keystrokes.
+          if (first != next)
+            {
+              cpu->ax = read_bda(next);
+              next += 2;
+              if (next > end)
+                next = start;
+              write_bda(0x1a, next, 2);
+            }
+          else
+            // we should block here until the next IRQ arives, but we return a zero keycode instead
+            cpu->ax = 0;
+        }
+        break;
       case 0x11: // check extended keystroke
       case 0x01: // check keystroke
-	{
-	  // XXX For AH=0x01 we need to discard extended keystrokes.
-	  cpu->efl |= 1U << 6;
-	  if (first != next)
-	    {
-	      cpu->efl &= ~(1U << 6);
-	      cpu->ax = read_bda(next);
-	    }
-	break;
-	}
-      case 0x02: // get shift flag
-	cpu->al = read_bda(0x17);
-	break;
+        // XXX For AH=0x01 we need to discard extended keystrokes.
+        cpu->efl |= 1U << 6;
+        if (first != next)
+          {
+            cpu->efl &= ~(1U << 6);
+            cpu->ax = read_bda(next);
+          }
+        break;
+      case 0x12: // get pressed state of various keys
+        /* not supported, but there the status bits should be */
+        cpu->ah = read_bda(0x18);
+        /* fall through */
+      case 0x02: // get enable state of various keys
+        cpu->al = read_bda(0x17);
+        break;
       case 0x03: // set typematic
-	// ignored
-	break;
+        // ignored
+        break;
       default:
-	DEBUG(cpu);
+        DEBUG(cpu);
       }
     msg.mtr_out |= MTD_RFLAGS | MTD_GPR_ACDB;
     return true;
@@ -188,10 +190,10 @@ public:
       first += 0x2;
       if (first >= end)   first = start;
       if (value && first != next)
-	{
-	  write_bda(read_bda(0x1c), value, 2);
-	  write_bda(0x1c, first, 2);
-	}
+        {
+          write_bda(read_bda(0x1c), value, 2);
+          write_bda(0x1c, first, 2);
+        }
       return true;
     }
     return false;
@@ -208,11 +210,11 @@ public:
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
       case MessageHostOp::OP_ALLOC_IOMEM:
       case MessageHostOp::OP_ATTACH_IRQ:
-	// we have all ports and irqs
-	return true;
+        // we have all ports and irqs
+        return true;
       case MessageHostOp::OP_ASSIGN_PCI:
       case MessageHostOp::OP_ATTACH_MSI:
-	return false;
+        return false;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_VIRT_TO_PHYS:
       case MessageHostOp::OP_GUEST_MEM:
@@ -265,8 +267,8 @@ public:
 };
 
 PARAM_HANDLER(vbios_keyboard,
-	      "vbios_keyboard:hostkeyboard - provide keyboard related virtual BIOS functions. Gets input from the given hostkeyboard.",
-	      "Example: 'vbios_keyboard:0x17'")
+              "vbios_keyboard:hostkeyboard - provide keyboard related virtual BIOS functions. Gets input from the given hostkeyboard.",
+              "Example: 'vbios_keyboard:0x17'")
 {
   new VirtualBiosKeyboard(mb, argv[0]);
 }
