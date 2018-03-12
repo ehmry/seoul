@@ -16,8 +16,8 @@
  * General Public License version 2 for more details.
  */
 
-DBus<MessageMemRegion>  *_bus_memregion;
-DBus<MessageMem>        *_bus_mem;
+DBus<MessageMemRegion>  *_bus_memregion { nullptr };
+DBus<MessageMem>        *_bus_mem       { nullptr };
 
 
 /**

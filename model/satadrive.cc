@@ -329,6 +329,13 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
       };
   };
 
+ private:
+  /*
+   * Noncopyable
+   */
+  SataDrive(SataDrive const &);
+  SataDrive &operator = (SataDrive const &);
+  ~SataDrive();
 
  public:
   void comreset()

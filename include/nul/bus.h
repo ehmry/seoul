@@ -28,12 +28,18 @@
  */
 class Device
 {
-  const char *_debug_name;
+#ifdef DEBUG_BUS
+  char const * const _debug_name;
+
 public:
   void debug_dump() {
     Logging::printf("\t%s\n", _debug_name);
   }
-  Device(const char *debug_name) :_debug_name(debug_name) {}
+  Device(char const * const debug_name) : _debug_name(debug_name) {}
+#else
+public:
+  Device(char const * const) {}
+#endif
 };
 
 
@@ -57,7 +63,7 @@ class DBus
     EnqueueFunction _func;
   };
 
-  unsigned long _debug_counter;
+  unsigned long _debug_counter { 0 };
   unsigned _list_count;
   unsigned _list_size;
   struct Entry *_list;
@@ -70,7 +76,7 @@ class DBus
   /**
    * To avoid bugs we disallow the copy constuctor.
    */
-  DBus(const DBus<M> &) { Logging::panic("%s copy constructor called", __func__); }
+  DBus(const DBus<M> &);
 
   void set_size(unsigned new_size)
   {
@@ -254,6 +260,7 @@ public:
    */
   unsigned count() { return _list_count; };
 
+#ifdef DEBUG_BUS
   /**
    * Debugging output.
    */
@@ -267,7 +274,8 @@ public:
       }
     Logging::printf("\n");
   }
+#endif
 
   /** Default constructor. */
-  DBus() : _debug_counter(0), _list_count(0), _list_size(0), _list(nullptr), _callback_count(0), _callback_size(0), _iothread_callback(nullptr), _iothread_enqueue(nullptr) {}
+  DBus() : _list_count(0), _list_size(0), _list(nullptr), _callback_count(0), _callback_size(0), _iothread_callback(nullptr), _iothread_enqueue(nullptr) {}
 };

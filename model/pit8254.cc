@@ -66,7 +66,7 @@ class PitCounter : public StaticReceiver<PitCounter>
   DBus<MessageIrqLines> * _bus_irq;
   unsigned             _irq;
   Clock                _clock;
-  unsigned             _timer;
+  unsigned             _timer { 0 };
   static const long FREQ = 1193180;
 
   bool feature(Features f)
@@ -345,7 +345,7 @@ class PitCounter : public StaticReceiver<PitCounter>
 
 
   PitCounter(DBus<MessageTimer> *bus_timer, DBus<MessageIrqLines> *bus_irq, unsigned irq, Clock *clock)
-    : _modus(), _latch(), _new_counter(), _initial(), _latched_status(), _start(0), _bus_timer(bus_timer), _bus_irq(bus_irq), _irq(irq), _clock(*clock), _timer(0)
+    : _modus(), _latch(), _new_counter(), _initial(), _latched_status(), _start(0), _bus_timer(bus_timer), _bus_irq(bus_irq), _irq(irq), _clock(*clock)
   {
     assert(_clock.freq() != 0);
     if (_irq != ~0U)
@@ -356,7 +356,19 @@ class PitCounter : public StaticReceiver<PitCounter>
 	_timer = msg0.nr;
       };
   }
-  PitCounter() : _clock(0) {}
+  PitCounter()
+    : _modus(), _latch(), _new_counter(), _initial(), _latched_status(), _start(0), _bus_timer(nullptr), _bus_irq(0), _irq(0), _clock(0)
+  { }
+
+  PitCounter &operator = (PitCounter const &other)
+  {
+    memcpy(this, &other, sizeof(*this));
+    return *this;
+  }
+
+private:
+  PitCounter(PitCounter const &);
+
 };
 
 

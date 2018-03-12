@@ -45,8 +45,8 @@ private:
   unsigned _base;
   unsigned _gsibase;
 
-  unsigned char _index;
-  unsigned _id;
+  unsigned char _index { 0 };
+  unsigned _id { 0 };
   unsigned _redir [PINS*2];
   bool     _rirr  [PINS];
   bool     _ds    [PINS];

@@ -51,15 +51,15 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 #define ACPI_OEM_ID        " NOVA "
 #define ACPI_MANUFACTURER "bk@vmmon"
 
-  char     *_mem_ptr;
-  size_t    _mem_size;
+  uintptr_t const _mem_ptr;
+  size_t          _mem_size;
 
   struct Resource {
     const char *name;
     size_t offset;
     size_t length;
     bool     acpi_table;
-    Resource() {}
+    Resource() : name(nullptr), offset(0), length(0), acpi_table(false) {}
     Resource(const char *_name, size_t _offset, size_t _length, bool _acpi_table) : name(_name), offset(_offset), length(_length), acpi_table(_acpi_table)  {}
   } _resources[MAX_RESOURCES];
 
@@ -176,7 +176,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     _mem_size &= ~alignment;
 
     // clear region
-    memset(_mem_ptr + _mem_size, 0, size);
+    memset(mem_ptr() + _mem_size, 0, size);
     return _mem_size;
   }
 
@@ -190,15 +190,15 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
   }
 
 
-  unsigned acpi_tablesize(Resource *r) { return *reinterpret_cast<unsigned *>(_mem_ptr + r->offset + 4); }
+  unsigned acpi_tablesize(Resource *r) { return *reinterpret_cast<unsigned *>(mem_ptr() + r->offset + 4); }
 
 
   void fix_acpi_checksum(Resource *r, size_t length, size_t chksum_offset = 9) {
     assert(r);
     char value = 0;
     for (size_t i=0; i < length && i < r->length; i++)
-      value += _mem_ptr[r->offset + i];
-    _mem_ptr[r->offset + chksum_offset] -= value;
+      value += mem_ptr()[r->offset + i];
+    mem_ptr()[r->offset + chksum_offset] -= value;
   }
 
 
@@ -216,11 +216,11 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
   bool create_resource(unsigned index, const char *name) {
     if (!strcmp("realmode idt", name)) {
       _resources[index] = Resource(name, 0, 0x400, false);
-      memset(_mem_ptr + _resources[index].offset, 0, _resources[index].length);
+      memset(mem_ptr() + _resources[index].offset, 0, _resources[index].length);
     }
     else if (!strcmp("bda", name)) {
       _resources[index] = Resource(name, 0x400, 0x200, false);
-      memset(_mem_ptr + _resources[index].offset, 0, _resources[index].length);
+      memset(mem_ptr() + _resources[index].offset, 0, _resources[index].length);
     }
     else if (!strcmp("ebda", name)) {
       size_t ebda;
@@ -254,7 +254,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 
         /* The DSDT is completely defined as AML bytecode in dsdt.h
          * which was compiled from ASL by the Intel ASL compiler */
-        memcpy(_mem_ptr + table, AmlCode, sizeof(AmlCode));
+        memcpy(mem_ptr() + table, AmlCode, sizeof(AmlCode));
     }
     else if (!strcmp("FACS", name)) {
         unsigned table;
@@ -289,6 +289,18 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
       }
     }
     return true;
+  }
+
+private:
+
+  char * mem_ptr() const { return reinterpret_cast<char *>(_mem_ptr); }
+
+  uintptr_t init_mem_ptr() {
+    MessageMemRegion msg3(0);
+    if (!_mb.bus_memregion.send(msg3) || !msg3.ptr)
+      Logging::panic("no low memory available");
+    // were we start to allocate stuff
+    return reinterpret_cast<uintptr_t>(msg3.ptr);
   }
 
 public:
@@ -338,7 +350,7 @@ public:
           discovery_write_dw(r->name, 4, needed_len, 4);
           table_len = needed_len;
         }
-        memcpy(_mem_ptr + r->offset + msg.offset, msg.data, msg.count);
+        memcpy(mem_ptr() + r->offset + msg.offset, msg.data, msg.count);
 
         // and fix the checksum
         if (r->acpi_table)   fix_acpi_checksum(r, table_len);
@@ -350,7 +362,7 @@ public:
         size_t needed_len = msg.offset + 4;
         check1(false, !(r = get_resource(msg.resource)));
         check1(false, needed_len > r->length, "READ no idea how to increase the table %s size from %zu to %zu", msg.resource, r->length, needed_len);
-        memcpy(msg.dw, _mem_ptr + r->offset + msg.offset, 4);
+        memcpy(msg.dw, mem_ptr() + r->offset + msg.offset, 4);
       }
       break;
     case MessageDiscovery::DISCOVERY:
@@ -363,18 +375,12 @@ public:
   bool receive(MessageMem &msg) {
     if (!msg.read || !in_range(msg.phys, BIOS_BASE, 0x10000)) return false;
     /* give read only access to bios area */
-    Cpu::move<2>(msg.ptr, _mem_ptr + msg.phys);
+    Cpu::move<2>(msg.ptr, mem_ptr() + msg.phys);
     return true;
   }
 
-  VirtualBiosReset(Motherboard &mb) : BiosCommon(mb), _mem_size(), _resources() {
-    MessageMemRegion msg3(0);
-    if (!_mb.bus_memregion.send(msg3) || !msg3.ptr)
-      Logging::panic("no low memory available");
-
-    // were we start to allocate stuff
-    _mem_ptr = msg3.ptr;
-  }
+  VirtualBiosReset(Motherboard &mb)
+  : BiosCommon(mb), _mem_ptr(init_mem_ptr()), _mem_size(), _resources() {}
 };
 
 PARAM_HANDLER(vbios_reset,

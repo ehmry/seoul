@@ -82,7 +82,7 @@ def declaration_gen(name, rset, out):
             pass
         else:
             inits.append("\t%s = 0x%xU;" % (r['name'], unsigned(r['initial'])))
-            out("uint32 %s;" % r['name'])
+            out("uint32 %s {%xU};" % (r['name'], unsigned(r['initial'])))
     out("\nvoid %s_init()\n{" % name)
     for line in inits:
         out(line)

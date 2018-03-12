@@ -27,13 +27,20 @@
  */
 class HostSink : public StaticReceiver<HostSink>
 {
-  unsigned _hdev;
-  unsigned _size;
+  unsigned const _hdev;
+  unsigned const _size;
   unsigned _count;
   bool  _overflow;
-  unsigned _head_char;
-  unsigned _cont_char;
-  unsigned char *_buffer;
+  unsigned const _head_char;
+  unsigned const _cont_char;
+  unsigned char * const _buffer;
+
+ private:
+  /*
+   * Noncopyable
+   */
+  HostSink(HostSink const &);
+  HostSink &operator = (HostSink const &);
 
  public:
   bool  receive(MessageSerial &msg)
@@ -56,14 +63,13 @@ class HostSink : public StaticReceiver<HostSink>
     return true;
   }
 
- HostSink(unsigned hdev, unsigned size, unsigned head_char, unsigned cont_char) : _hdev(hdev), _size(size), _count(0), _overflow(false)
-  {
-    if ((size == ~0U) || (size < 1))
-      size = 1;
-    _head_char = (head_char == ~0U) ? '#' : head_char;
-    _cont_char = (cont_char == ~0U) ? '|' : cont_char;
-    _buffer = new unsigned char[size + 1];
-  }
+  HostSink(unsigned hdev, unsigned size, unsigned head_char, unsigned cont_char)
+    : _hdev(hdev), _size(((size == ~0U) || (size < 1)) ? 1 : size),
+      _count(0), _overflow(false),
+      _head_char((head_char == ~0U) ? '#' : head_char),
+      _cont_char((cont_char == ~0U) ? '|' : cont_char),
+      _buffer(new unsigned char[size + 1])
+  { }
 };
 
 PARAM_HANDLER(hostsink,

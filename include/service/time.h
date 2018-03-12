@@ -35,7 +35,7 @@ struct tm_simple {
   int wday;
   int yday;
   int isdsdt;
-  tm_simple() {};
+  tm_simple() : sec(0), min(0), hour(0), mday(0), mon(0), year(0), wday(0), yday(0), isdsdt(0) {};
   tm_simple(int _year, int _mon, int _mday, int _hour, int _min, int _sec) : sec(_sec), min(_min), hour(_hour), mday(_mday), mon(_mon), year(_year), wday(0), yday(0), isdsdt(0) {}
 };
 

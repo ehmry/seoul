@@ -150,11 +150,11 @@ struct MessageMem
 struct MessageMemRegion
 {
   uintptr_t page;
-  uintptr_t start_page;
-  unsigned      count;
-  char *        ptr;
-  bool      actual_physmem;
-  MessageMemRegion(uintptr_t _page) : page(_page), count(0), ptr(0), actual_physmem(false) {}
+  uintptr_t start_page     { 0 };
+  unsigned  count          { 0 };
+  char *    ptr            { nullptr };
+  bool      actual_physmem { false};
+  MessageMemRegion(uintptr_t _page) : page(_page) {}
 };
 
 
@@ -175,21 +175,17 @@ struct MessagePciConfig
   unsigned  bdf;
   unsigned  dword;
   unsigned  value;
-  unsigned *ptr;
+  unsigned *ptr { nullptr };
 
   MessagePciConfig(unsigned _bdf, unsigned _dword) : type(TYPE_READ), bdf(_bdf), dword(_dword), value(0xffffffff) {}
   MessagePciConfig(unsigned _bdf, unsigned _dword, unsigned _value) : type(TYPE_WRITE), bdf(_bdf), dword(_dword), value(_value) {}
 
-  explicit
-  MessagePciConfig(unsigned _bdf) : type(TYPE_PTR), bdf(_bdf), dword(0), ptr(NULL) {}
 };
 
 struct MessageHwPciConfig : public MessagePciConfig {
   MessageHwPciConfig(unsigned _bdf, unsigned _dword) : MessagePciConfig(_bdf, _dword) {}
   MessageHwPciConfig(unsigned _bdf, unsigned _dword, unsigned _value) : MessagePciConfig(_bdf, _dword, _value) {}
 
-  explicit
-  MessageHwPciConfig(unsigned _bdf) : MessagePciConfig(_bdf) {}
 };
 
 
@@ -253,7 +249,7 @@ struct MessageIrqNotify
 struct MessagePic
 {
   unsigned char slave;
-  unsigned char vector;
+  unsigned char vector { 0 };
   MessagePic(unsigned char _slave) :  slave(_slave) { }
 };
 
@@ -436,10 +432,10 @@ struct MessageConsole
       char const * cmdline;
     };
   };
-  MessageConsole(Type _type = TYPE_ALLOC_CLIENT, unsigned short _id=0) : type(_type), id(_id), ptr(0) {}
-  MessageConsole(unsigned _index, ConsoleModeInfo *_info) : type(TYPE_GET_MODEINFO), index(_index), info(_info) {}
+  MessageConsole(Type _type = TYPE_ALLOC_CLIENT, unsigned short _id=0) : type(_type), id(_id), view(0), ptr(0) {}
+  MessageConsole(unsigned _index, ConsoleModeInfo *_info) : type(TYPE_GET_MODEINFO), id(0), view(0), index(_index), info(_info) {}
   MessageConsole(const char *_name, char * _ptr, size_t _size, VgaRegs *_regs)
-    : type(TYPE_ALLOC_VIEW), id(~0), name(_name), ptr(_ptr), size(_size), regs(_regs) {}
+    : type(TYPE_ALLOC_VIEW), id(~0), view(0), name(_name), ptr(_ptr), size(_size), regs(_regs) {}
   MessageConsole(unsigned short _id, unsigned short _view, unsigned _input_device, unsigned _input_data)
     : type(TYPE_KEY), id(_id), view(_view), input_device(_input_device), input_data(_input_data) {}
 };
@@ -460,7 +456,7 @@ struct MessageVesa
   unsigned index;
   Vbe::ModeInfoBlock *info;
   MessageVesa(unsigned _index, Vbe::ModeInfoBlock *_info) : type(TYPE_GET_MODEINFO), index(_index), info(_info) {}
-  MessageVesa(unsigned _index) : type(TYPE_SWITCH_MODE), index(_index) {}
+  MessageVesa(unsigned _index) : type(TYPE_SWITCH_MODE), index(_index), info(nullptr) {}
 };
 
 /****************************************************/
@@ -756,7 +752,7 @@ struct MessageTimer
     } type;
   unsigned  nr;
   timevalue abstime;
-  MessageTimer()              : type(TIMER_NEW) {}
+  MessageTimer() : type(TIMER_NEW), nr(0), abstime(0) {}
   MessageTimer(unsigned  _nr, timevalue _abstime) : type(TIMER_REQUEST_TIMEOUT), nr(_nr), abstime(_abstime) {}
 };
 

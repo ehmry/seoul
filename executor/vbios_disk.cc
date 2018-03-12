@@ -37,9 +37,10 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
     DISK_COUNT = 0x75,
     WAKEUP_IRQ = 1,
   };
-  unsigned _timer;
+  unsigned _timer { 0 };
   DiskParameter _disk_params[MAX_DISKS];
-  unsigned _disk_count;
+  unsigned _disk_count { ~0U };
+
   bool _diskop_inprogress;
 
   void init_params() {
@@ -306,8 +307,6 @@ public:
   VirtualBiosDisk(Motherboard &mb) : BiosCommon(mb), _disk_params(), _diskop_inprogress() {
     mb.bus_diskcommit.add(this,  VirtualBiosDisk::receive_static<MessageDiskCommit>);
     mb.bus_timeout.add(this,     VirtualBiosDisk::receive_static<MessageTimeout>);
-
-    _disk_count = ~0u;
 
     // get timer
     MessageTimer msg0;

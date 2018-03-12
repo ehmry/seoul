@@ -19,12 +19,15 @@
  */
 
 #pragma once
+
 /**
  * This template converts from static receive to member functions.
  */
 template<typename Y>
 class StaticReceiver : public Device
 {
+protected:
+  ~StaticReceiver() {}
 public:
   template<class M>
   static bool receive_static(Device *o, M& msg) { return static_cast<Y*>(o)->receive(msg); }
@@ -32,7 +35,7 @@ public:
   static bool enqueue_static(Device *o, M& msg, MessageIOThread::Mode mode, MessageIOThread::Sync sync, unsigned *value, VCpu *vcpu=nullptr) { return static_cast<Y*>(o)->enqueue(msg, mode, sync, value, vcpu); }
   template<class M>
   static bool claim_static(Device *o, M& msg) { return static_cast<Y*>(o)->claim(msg); }
-  StaticReceiver() : Device(__PRETTY_FUNCTION__) {};
+  StaticReceiver() : Device(__PRETTY_FUNCTION__) {}
 };
 
 
@@ -76,6 +79,7 @@ protected:
     return res;
   }
 
+  ~DiscoveryHelper() {}
 
 public:
   static bool  discover(Device *o, MessageDiscovery &msg) {

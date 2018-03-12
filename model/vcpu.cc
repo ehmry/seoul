@@ -29,13 +29,13 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 #define VMM_REGBASE "../model/vcpu.cc"
 #include "model/reg.h"
 
-  uintptr_t _hostop_id;
+  uintptr_t _hostop_id { 0 };
   Motherboard &_mb;
-  long long _reset_tsc_off;
+  long long _reset_tsc_off { 0 };
 
   volatile unsigned _event;
   volatile unsigned _sipi;
-  unsigned long _intr_hint;
+  unsigned long _intr_hint { 0 };
 
   unsigned char debugioin[8192];
   unsigned char debugioout[8192];
@@ -527,7 +527,7 @@ public:
     bus_lapic.add(this, VirtualCpu::receive_static<LapicEvent>);
 
     CPUID_reset();
- }
+  }
 };
 
 PARAM_HANDLER(vcpu,

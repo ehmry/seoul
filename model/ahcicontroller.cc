@@ -24,8 +24,9 @@
 
 class ParentIrqProvider
 {
- public:
-  virtual void trigger_irq (void * child) = 0;
+  public:
+    virtual void trigger_irq (void * child) = 0;
+    virtual ~ParentIrqProvider() { }
 };
 
 /**
@@ -47,6 +48,12 @@ class AhciPort : public FisReceiver
 
 #define  VMM_REGBASE "../model/ahcicontroller.cc"
 #include "model/reg.h"
+
+  /*
+   * Noncopyable
+   */
+  AhciPort(AhciPort const &);
+  AhciPort &operator = (AhciPort const &);
 
 public:
 
@@ -206,6 +213,7 @@ public:
 
   AhciPort() : _drive(0), _parent(0), _ccs(), _inprogress(), _need_initial_fis() { AhciPort_reset(); };
 
+  virtual ~AhciPort() { }
 };
 
 #else
@@ -300,7 +308,7 @@ VMM_REGSET(AhciController,
  * Features: PCI cfg space, AHCI register set, MSI delivery
  */
 class AhciController : public ParentIrqProvider,
-		       public StaticReceiver<AhciController>
+                       public StaticReceiver<AhciController>
 {
   enum {
     MAX_PORTS = 32,
@@ -393,6 +401,8 @@ class AhciController : public ParentIrqProvider,
     PCI_reset();
     AhciController_reset();
   };
+
+  virtual ~AhciController() { }
 };
 
 PARAM_HANDLER(ahci,

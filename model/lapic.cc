@@ -35,10 +35,10 @@
  */
 class Lapic : public DiscoveryHelper<Lapic>, public StaticReceiver<Lapic>
 {
-    int _regstart;
+    int _regstart { 0 };
 #define VMM_REGBASE "../model/lapic.cc"
 #include "model/reg.h"
-    int _regend;
+    int _regend { 0 };
 
   enum {
     MAX_FREQ   = 200000000,
@@ -54,21 +54,22 @@ class Lapic : public DiscoveryHelper<Lapic>, public StaticReceiver<Lapic>
 public:
   Motherboard &_mb;
 private:
-  VCpu *    _vcpu;
+  VCpu        &_vcpu;
+
   unsigned  _initial_apic_id;
   unsigned  _timer;
-  unsigned  _timer_clock_shift;
+  unsigned  _timer_clock_shift { 0 };
 
   // dynamic state
-  unsigned  _timer_dcr_shift;
-  timevalue _timer_start;
-  unsigned long long _msr;
+  unsigned  _timer_dcr_shift   { 0 };
+  timevalue _timer_start       { 0 };
+  unsigned long long _msr      { 0 };
   unsigned  _vector[8*3];
-  unsigned  _esr_shadow;
-  unsigned  _isrv;
+  unsigned  _esr_shadow        { 0 };
+  unsigned  _isrv              { 0 };
   bool      _lvtds[NUM_LVT];
   bool      _rirr[NUM_LVT];
-  unsigned  _lowest_rr;
+  unsigned  _lowest_rr         { 0 };
 
   bool _restore_processed;
 
@@ -139,7 +140,7 @@ private:
 
       };
       for (unsigned i=0; i < sizeof(msg) / sizeof(*msg); i++)
-	_vcpu->executor.send(msg[i]);
+        _vcpu.executor.send(msg[i]);
     }
 
     _msr = value;
@@ -300,7 +301,7 @@ private:
     // send our output line level upstream
     CpuEvent msg(VCpu::EVENT_INTR);
     if (!prioritize_irq()) msg.value = VCpu::DEASS_INTR;
-    _vcpu->bus_event.send(msg);
+    _vcpu.bus_event.send(msg);
   }
 
 
@@ -469,7 +470,7 @@ private:
       update_irqs();
     else if (event & (VCpu::EVENT_SMI | VCpu::EVENT_NMI | VCpu::EVENT_INIT)) {
       CpuEvent msg(event);
-      _vcpu->bus_event.send(msg);
+      _vcpu.bus_event.send(msg);
     }
 
     /**
@@ -576,7 +577,7 @@ public:
 
       // forward INIT, SIPI, SMI, NMI and EXTINT directly to the CPU core
       CpuEvent msg(event);
-      _vcpu->bus_event.send(msg);
+      _vcpu.bus_event.send(msg);
     }
     return true;
   }
@@ -777,7 +778,7 @@ public:
   }
 
 
-  Lapic(Motherboard &mb, VCpu *vcpu, unsigned initial_apic_id, unsigned timer)
+  Lapic(Motherboard &mb, VCpu &vcpu, unsigned initial_apic_id, unsigned timer)
       : _mb(mb), _vcpu(vcpu), _initial_apic_id(initial_apic_id), _timer(timer), _restore_processed(false)
   {
     // find a FREQ that is not too high
@@ -793,7 +794,7 @@ public:
       CpuMessage(6, 0, ~(1 << 2), 1 << 2),
     };
     for (unsigned i=0; i < sizeof(msg) / sizeof(*msg); i++)
-      _vcpu->executor.send(msg[i]);
+      _vcpu.executor.send(msg[i]);
 
     reset();
 
@@ -803,10 +804,10 @@ public:
     mb.bus_discovery.add(this,discover);
     mb.bus_restore.add(this, receive_static<MessageRestore>);
 
-    vcpu->executor.add(this,  receive_static<CpuMessage>);
-    vcpu->mem.add(this,       receive_static<MessageMem>);
-    vcpu->memregion.add(this, receive_static<MessageMemRegion>);
-    vcpu->bus_lapic.add(this, receive_static<LapicEvent>);
+    _vcpu.executor.add(this,  receive_static<CpuMessage>);
+    _vcpu.mem.add(this,       receive_static<MessageMem>);
+    _vcpu.memregion.add(this, receive_static<MessageMemRegion>);
+    _vcpu.bus_lapic.add(this, receive_static<LapicEvent>);
   }
 };
 
@@ -824,7 +825,7 @@ PARAM_HANDLER(lapic,
     Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
 
   static unsigned lapic_count;
-  new Lapic(mb, mb.last_vcpu, ~argv[0] ? argv[0]: lapic_count, msg0.nr);
+  new Lapic(mb, *mb.last_vcpu, ~argv[0] ? argv[0]: lapic_count, msg0.nr);
   lapic_count++;
 }
 

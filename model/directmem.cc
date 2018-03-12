@@ -29,6 +29,13 @@ class DirectMemDevice : public StaticReceiver<DirectMemDevice>
   char *_ptr;
   uintptr_t _phys;
   size_t _size;
+
+  /*
+   * Noncopyable
+   */
+  DirectMemDevice(DirectMemDevice const &);
+  DirectMemDevice &operator = (DirectMemDevice const &);
+
  public:
   bool  receive(MessageMemRegion &msg)
   {

@@ -39,18 +39,20 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
     TEXT_OFFSET = 0x18000 >> 1,
     EBDA_FONT_OFFSET = 0x1000,
   };
-  unsigned short _view;
+  unsigned short _view { 0 };
   unsigned short _iobase;
-  char         * _framebuffer_ptr;
+  uintptr_t      _framebuffer_ptr;
   uintptr_t      _framebuffer_phys;
   size_t         _framebuffer_size;
-  VgaRegs        _regs;
+  VgaRegs        _regs { };
   unsigned char  _crt_index;
   unsigned       _ebda_segment;
   unsigned       _vbe_mode;
   mword          _last_videomode_request;
 
   bool _restore_processed;
+
+  char * framebuffer_ptr() const { return reinterpret_cast<char *>(_framebuffer_ptr); }
 
   void puts_guest(const char *msg) {
     unsigned pos = _regs.cursor_pos - TEXT_OFFSET;
@@ -92,7 +94,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
     _regs.cursor_pos   = 24*80 + TEXT_OFFSET;
     _regs.cursor_style = 0x0d0e;
     // and clear the screen
-    memset(_framebuffer_ptr, 0, _framebuffer_size);
+    memset(framebuffer_ptr(), 0, _framebuffer_size);
     if (show) puts_guest("    VgaBios booting...\n\n\n");
     return true;
   }
@@ -190,7 +192,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	      Logging::printf("VESA %x base %zx+%x esi %x mode %x\n", cpu->eax, size_t(cpu->es.base), cpu->di, cpu->esi, index);
 
 	      // clear buffer
-	      if (~cpu->ebx & 0x8000)  memset(_framebuffer_ptr, 0, _framebuffer_size);
+	      if (~cpu->ebx & 0x8000)  memset(framebuffer_ptr(), 0, _framebuffer_size);
 
 	      // switch mode
 	      _regs.mode =  index;
@@ -271,8 +273,8 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 
 	    // check for overflow
 	    if (offset < 0x800*8) {
-		if (cpu->ah & 1) _framebuffer_ptr[2*(TEXT_OFFSET + offset) + 1] = cpu->bl;
-		_framebuffer_ptr[2*(TEXT_OFFSET + offset) + 0] = cpu->al;
+		if (cpu->ah & 1) framebuffer_ptr()[2*(TEXT_OFFSET + offset) + 1] = cpu->bl;
+		framebuffer_ptr()[2*(TEXT_OFFSET + offset) + 0] = cpu->al;
 	    }
 	  }
 	}
@@ -281,7 +283,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	{
 	  unsigned page  = get_page(cpu->bh);
 	  unsigned pos   = get_pos(cpu->bh);
-	  unsigned value = ((_framebuffer_ptr[2*(TEXT_OFFSET + page + pos) + 1] & 0xff) << 8);
+	  unsigned value = ((framebuffer_ptr()[2*(TEXT_OFFSET + page + pos) + 1] & 0xff) << 8);
 
 	  value |= cpu->al;
 	  Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET + page, pos);
@@ -490,9 +492,9 @@ public:
   {
     unsigned *ptr;
     if (in_range(msg.phys, _framebuffer_phys, _framebuffer_size))
-      ptr = reinterpret_cast<unsigned *>(_framebuffer_ptr + msg.phys - _framebuffer_phys);
+      ptr = reinterpret_cast<unsigned *>(framebuffer_ptr() + msg.phys - _framebuffer_phys);
     else if (in_range(msg.phys, LOW_BASE, LOW_SIZE))
-      ptr = reinterpret_cast<unsigned *>(_framebuffer_ptr + msg.phys - LOW_BASE);
+      ptr = reinterpret_cast<unsigned *>(framebuffer_ptr() + msg.phys - LOW_BASE);
     else return false;
 
     if (msg.read) *msg.ptr = *ptr; else *ptr = *msg.ptr;
@@ -511,7 +513,7 @@ public:
 	msg.count = LOW_SIZE >> 12;
     }
     else return false;
-    msg.ptr = _framebuffer_ptr;
+    msg.ptr = framebuffer_ptr();
     return true;
   }
 
@@ -529,10 +531,10 @@ public:
 
 
     MessageConsole msg2(MessageConsole::TYPE_GET_FONT);
-    msg2.ptr = _framebuffer_ptr;
+    msg2.ptr = framebuffer_ptr();
     if (_mb.bus_console.send(msg2)) {
       // write it to the EBDA
-      discovery_write_st("ebda", EBDA_FONT_OFFSET, _framebuffer_ptr, 0x1000);
+      discovery_write_st("ebda", EBDA_FONT_OFFSET, framebuffer_ptr(), 0x1000);
       discovery_read_dw("bda", 0xe, _ebda_segment);
       // set font vector
       discovery_write_dw("realmode idt", 0x43 * 4, (_ebda_segment << 16) | EBDA_FONT_OFFSET);
@@ -552,7 +554,7 @@ public:
       }
 
       if (msg.devtype == MessageRestore::VGA_DISPLAY_GUEST) {
-          if (msg.write) memset(_framebuffer_ptr, 0, _framebuffer_size);
+          if (msg.write) memset(framebuffer_ptr(), 0, _framebuffer_size);
           puts_guest(msg.space);
           return true;
       }
@@ -587,8 +589,8 @@ public:
   }
 
 
-  Vga(Motherboard &mb, unsigned short iobase, char *framebuffer_ptr, uintptr_t framebuffer_phys, size_t framebuffer_size)
-    : BiosCommon(mb), _iobase(iobase), _framebuffer_ptr(framebuffer_ptr), _framebuffer_phys(framebuffer_phys), _framebuffer_size(framebuffer_size), _crt_index(0), _ebda_segment(), _vbe_mode(), _last_videomode_request(), _restore_processed(false)
+  Vga(Motherboard &mb, unsigned short iobase, char *fb_ptr, uintptr_t framebuffer_phys, size_t framebuffer_size)
+    : BiosCommon(mb), _iobase(iobase), _framebuffer_ptr((uintptr_t)fb_ptr), _framebuffer_phys(framebuffer_phys), _framebuffer_size(framebuffer_size), _crt_index(0), _ebda_segment(), _vbe_mode(), _last_videomode_request(), _restore_processed(false)
   {
     assert(!(framebuffer_phys & 0xfff));
     assert(!(framebuffer_size & 0xfff));
@@ -597,11 +599,11 @@ public:
 
 
     // alloc console
-    MessageConsole msg("VM", _framebuffer_ptr, _framebuffer_size, &_regs);
+    MessageConsole msg("VM", framebuffer_ptr(), _framebuffer_size, &_regs);
     if (!mb.bus_console.send(msg))
       Logging::panic("could not alloc a VGA backend");
     _view = msg.view;
-    Logging::printf("VGA console %zx+%zx %p\n", size_t(_framebuffer_phys), _framebuffer_size, _framebuffer_ptr);
+    Logging::printf("VGA console %zx+%zx %zx\n", size_t(_framebuffer_phys), _framebuffer_size, _framebuffer_ptr);
 
     // switch to our console
     msg.type = MessageConsole::TYPE_SWITCH_VIEW;

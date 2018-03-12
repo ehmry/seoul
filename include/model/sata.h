@@ -20,10 +20,21 @@
 
 class FisReceiver
 {
+ private:
+  /*
+   * Noncopyable
+   */
+  FisReceiver(FisReceiver const &);
+  FisReceiver &operator = (FisReceiver const &);
+
  protected:
   FisReceiver *_peer;
+
+  ~FisReceiver() {}
+
  public:
- FisReceiver() : _peer(0) {}
+  FisReceiver() : _peer(nullptr) {}
+
   virtual void receive_fis(size_t fislen, unsigned *fis) = 0;
   void set_peer(FisReceiver *peer) { _peer = peer; }
 };

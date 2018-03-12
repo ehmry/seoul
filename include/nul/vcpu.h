@@ -70,19 +70,19 @@ struct CpuMessage {
     };
   };
   unsigned mtr_in;
-  unsigned mtr_out;
-  unsigned consumed; //info whether a model consumed this event
+  unsigned mtr_out { 0 };
+  unsigned consumed { 0 }; //info whether a model consumed this event
 
   // When TSC offset is adjusted, the current absolute offset is kept
   // here, as the vcpu structure will then only contain the adjustment
   // the kernel is to apply. This member is only valid, iff mtr_out &
   // MTD_TSC is true;
-  long long current_tsc_off;
+  long long current_tsc_off { 0 };
 
-  CpuMessage(Type _type, CpuState *_cpu, unsigned _mtr_in) : type(_type), cpu(_cpu), mtr_in(_mtr_in), mtr_out(0), consumed(0) { if (type == TYPE_CPUID) cpuid_index = cpu->eax; }
-  CpuMessage(unsigned _nr, unsigned _reg, unsigned _mask, unsigned _value) : type(TYPE_CPUID_WRITE), nr(_nr), reg(_reg), mask(_mask), value(_value), consumed(0) {}
+  CpuMessage(Type _type, CpuState *_cpu, unsigned _mtr_in) : type(_type), cpu(_cpu), mtr_in(_mtr_in) { if (type == TYPE_CPUID) cpuid_index = cpu->eax; }
+  CpuMessage(unsigned _nr, unsigned _reg, unsigned _mask, unsigned _value) : type(TYPE_CPUID_WRITE), nr(_nr), reg(_reg), mask(_mask), value(_value), mtr_in(0) {}
   CpuMessage(bool is_in, CpuState *_cpu, unsigned _io_order, unsigned _port, void *_dst, unsigned _mtr_in)
-  : type(is_in ? TYPE_IOIN : TYPE_IOOUT), cpu(_cpu), io_order(_io_order), port(_port), dst(_dst), mtr_in(_mtr_in), mtr_out(0), consumed(0) {}
+  : type(is_in ? TYPE_IOIN : TYPE_IOOUT), cpu(_cpu), io_order(_io_order), port(_port), dst(_dst), mtr_in(_mtr_in) {}
 };
 
 
@@ -100,7 +100,7 @@ struct LapicEvent {
     CHECK_INTR
   } type;
   unsigned value;
-  LapicEvent(Type _type) : type(_type) { if (type == INTA) value = ~0u; }
+  LapicEvent(Type _type) : type(_type), value((type == INTA) ? ~0u : 0) {}
 };
 
 
@@ -108,11 +108,11 @@ class VCpu
 {
   VCpu *_last;
 public:
-  DBus<CpuMessage>       executor;
-  DBus<CpuEvent>         bus_event;
-  DBus<LapicEvent>       bus_lapic;
-  DBus<MessageMem>       mem;
-  DBus<MessageMemRegion> memregion;
+  DBus<CpuMessage>       executor  { };
+  DBus<CpuEvent>         bus_event { };
+  DBus<LapicEvent>       bus_lapic { };
+  DBus<MessageMem>       mem       { };
+  DBus<MessageMemRegion> memregion { };
 
   VCpu *get_last() { return _last; }
   bool is_ap()     { return _last; }
@@ -155,8 +155,8 @@ public:
   union {
     struct Parameter params[NUM_VCPU_PARAMETER];
     char bytes[4096];
-  } shmem;
-  unsigned params_used;
+  } shmem { };
+  unsigned params_used { 0 };
 
   /**
    * Return a pointer on the free part of the shmem area.

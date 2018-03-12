@@ -54,7 +54,7 @@ private:
     };
     unsigned short   _regs[6];
   };
-  unsigned char      _command, _error, _status, _control;
+  unsigned char      _command {0}, _error{0}, _status{0}, _control{0};
   char              *_buffer;
   unsigned long      _baddr;
   unsigned           _bufferoffset;
@@ -313,6 +313,13 @@ private:
     Logging::printf("Instanciated IDE controller with bdf %#x for disk '%s' with %#Lx sectors\n",
                     bdf, params.name, (unsigned long long)params.sectors);
   }
+
+  /*
+   * Noncopyable
+   */
+  IdeController(IdeController const &);
+  IdeController &operator = (IdeController const &);
+
 };
 
 PARAM_HANDLER(ide,

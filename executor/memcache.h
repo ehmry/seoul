@@ -114,9 +114,9 @@ private:
     unsigned _newer_write;
     char data[BUFFER_SIZE];
   } _buffers[BUFFERS];
-  unsigned _newest_buffer;
-  unsigned _oldest_write;
-  unsigned _newest_write;
+  unsigned _newest_buffer { ~0U };
+  unsigned _oldest_write  { ~0U };
+  unsigned _newest_write  { ~0U };
 
 
   void buffer_io(bool read, unsigned index) {
@@ -293,7 +293,6 @@ public:
       }
 
     // init the buffers
-    _newest_buffer = ~0;
     for (unsigned i = 0; i < BUFFERS; i++)
       {
 	_buffers[i]._older = _newest_buffer;

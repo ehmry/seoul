@@ -33,7 +33,7 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
   DBus<MessagePS2> &_bus_ps2;
   unsigned _ps2port;
   unsigned _hostmouse;
-  unsigned long long _packet;
+  unsigned long long _packet { 0 };
   enum
   {
     STATUS_RIGHT       = 1 << 0,
@@ -43,18 +43,18 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
     STATUS_ENABLED     = 1 << 5,
     STATUS_REMOTE      = 1 << 6,
   };
-  unsigned char _status;
-  unsigned char _resolution;
-  unsigned char _samplerate;
-  int _posx;
-  int _posy;
+  unsigned char _status     { 0 };
+  unsigned char _resolution { 0 };
+  unsigned char _samplerate { 0 };
+  int _posx { 0 };
+  int _posy { 0 };
   enum Params
   {
     PARAM_NONE,
     PARAM_ECHO,
     PARAM_SET_RESOLUTION,
     PARAM_SET_SAMPLERATE,
-  } _param;
+  } _param { PARAM_NONE };
 
 
   int scale_coord(bool report, int value)

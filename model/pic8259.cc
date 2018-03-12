@@ -59,16 +59,16 @@ class PicDevice : public StaticReceiver<PicDevice>
   unsigned char  _virq;
   unsigned char  _icw[4];
   ICW_MODE       _icw_mode;
-  bool           _rotate_on_aeoi;
-  bool           _smm;
-  bool           _read_isr_reg;
-  bool           _poll_mode;
-  unsigned char  _prio_lowest;
-  unsigned char  _imr;
-  unsigned char  _isr;
-  unsigned char  _irr;
-  unsigned char  _elcr;
-  unsigned char  _notify;
+  bool           _rotate_on_aeoi { false };
+  bool           _smm            { false };
+  bool           _read_isr_reg   { false };
+  bool           _poll_mode      { false };
+  unsigned char  _prio_lowest    { 7 };
+  unsigned char  _imr            { 0 };
+  unsigned char  _isr            { 0 };
+  unsigned char  _irr            { 0 };
+  unsigned char  _elcr           { 0 };
+  unsigned char  _notify         { 0 };
 
   bool _restore_processed;
 

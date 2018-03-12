@@ -27,7 +27,7 @@ extern char start_vbios, end_vbios;
 class VBios : public BiosCommon, public StaticReceiver<VBios>
 {
 private:
-  VCpu *_vcpu;
+  VCpu &_vcpu;
   struct StackFrame {
     union {
       struct {
@@ -43,7 +43,7 @@ private:
     unsigned short ucs;
     unsigned short uefl;
   };
-  CpuState _shadowcpu;
+  CpuState _shadowcpu {};
 
 public:
 
@@ -58,9 +58,9 @@ public:
     unsigned irq =  (cpu->cs.base + cpu->eip) - BIOS_BASE;
 
     // make sure we take the normal copy-in path
-    _vcpu->params_used = 0;
+    _vcpu.params_used = 0;
 
-    MessageBios msg1(_vcpu, cpu, irq);
+    MessageBios msg1(&_vcpu, cpu, irq);
     _mb.bus_bios.send(msg1, irq != BIOS_RESET_VECTOR);
     // we assume we have handled the BIOS call
     msg.mtr_out |= msg1.mtr_out;
@@ -76,7 +76,7 @@ public:
         unsigned short iret_frame[3];
 	unsigned stack_address = cpu->esp;
 	if (((cpu->ss.ar >> 10) & 1)==0) stack_address &= 0xffff;
-	if (!_vcpu->copy_in(cpu->ss.base + stack_address, iret_frame, sizeof(iret_frame)))
+	if (!_vcpu.copy_in(cpu->ss.base + stack_address, iret_frame, sizeof(iret_frame)))
 	  Logging::panic("can not copy in iret frame");
 	cpu->cs.sel = iret_frame[1];
 	cpu->cs.base= cpu->cs.sel << 4;
@@ -97,17 +97,17 @@ public:
   bool receive(MessageMem &msg)
   {
     // we trigger on the read of the params->count
-    if (msg.read && in_range(msg.phys, BIOS_SHMEM_BASE, sizeof(_vcpu->shmem.params)) && !((msg.phys - BIOS_SHMEM_BASE) % sizeof(*_vcpu->shmem.params))) {
-      unsigned number = (msg.phys - BIOS_SHMEM_BASE) / sizeof(*_vcpu->shmem.params);
+    if (msg.read && in_range(msg.phys, BIOS_SHMEM_BASE, sizeof(_vcpu.shmem.params)) && !((msg.phys - BIOS_SHMEM_BASE) % sizeof(*_vcpu.shmem.params))) {
+      unsigned number = (msg.phys - BIOS_SHMEM_BASE) / sizeof(*_vcpu.shmem.params);
       if (!number) {
 	// initial read -> clear all other copy-parameters
-	memset(_vcpu->shmem.params + 1, 0, sizeof(_vcpu->shmem.params) - sizeof(*_vcpu->shmem.params));
-	_vcpu->params_used = 1;
+	memset(_vcpu.shmem.params + 1, 0, sizeof(_vcpu.shmem.params) - sizeof(*_vcpu.shmem.params));
+	_vcpu.params_used = 1;
       }
-      else if (number == _vcpu->params_used) {
-	StackFrame *frame = reinterpret_cast<StackFrame *>(_vcpu->shmem.bytes + (_vcpu->shmem.params[0].dst.seg << 4) + _vcpu->shmem.params[0].dst.ofs - BIOS_SHMEM_BASE);
-	MessageBios msg1(_vcpu, &_shadowcpu, frame->irq - 1);
-	//Logging::printf("BIOS(%x) num %d ofs %x:%x eax %x ecx %x\n", frame->irq, number, _vcpu->shmem.params[0].dst.seg, _vcpu->shmem.params[0].dst.ofs, frame->eax, frame->ecx);
+      else if (number == _vcpu.params_used) {
+	StackFrame *frame = reinterpret_cast<StackFrame *>(_vcpu.shmem.bytes + (_vcpu.shmem.params[0].dst.seg << 4) + _vcpu.shmem.params[0].dst.ofs - BIOS_SHMEM_BASE);
+	MessageBios msg1(&_vcpu, &_shadowcpu, frame->irq - 1);
+	//Logging::printf("BIOS(%x) num %d ofs %x:%x eax %x ecx %x\n", frame->irq, number, _vcpu.shmem.params[0].dst.seg, _vcpu.shmem.params[0].dst.ofs, frame->eax, frame->ecx);
 
 	// prepare CPU registers for BIOS handling
 	for (unsigned i = 0; i<8; i++) _shadowcpu.gpr[i] = frame->rgpr[7-i];
@@ -121,23 +121,23 @@ public:
 	  // copy GPRs and eflags out
 	  for (unsigned i = 0; i<8; i++) frame->rgpr[7-i] = _shadowcpu.gpr[i];
 	  frame->uefl = _shadowcpu.efl;
-	  _vcpu->copy_out((_vcpu->shmem.params[0].src.seg << 4) + _vcpu->shmem.params[0].src.ofs, frame, sizeof(StackFrame));
+	  _vcpu.copy_out((_vcpu.shmem.params[0].src.seg << 4) + _vcpu.shmem.params[0].src.ofs, frame, sizeof(StackFrame));
 
 	  // we are done
-	  _vcpu->params_used = 0;
+	  _vcpu.params_used = 0;
 	}
 
 	// it looks like we failed the request or it was bogus
-	if (_vcpu->params_used == number) _vcpu->params_used = 0;
+	if (_vcpu.params_used == number) _vcpu.params_used = 0;
       }
     }
 
     // make the shmem-area visible
-    if (in_range(msg.phys, BIOS_SHMEM_BASE, sizeof(_vcpu->shmem) - 3)) {
+    if (in_range(msg.phys, BIOS_SHMEM_BASE, sizeof(_vcpu.shmem) - 3)) {
       if (msg.read)
-	Cpu::move<2>(msg.ptr, _vcpu->shmem.bytes + msg.phys -  BIOS_SHMEM_BASE);
+	Cpu::move<2>(msg.ptr, _vcpu.shmem.bytes + msg.phys -  BIOS_SHMEM_BASE);
       else
-	Cpu::move<2>(_vcpu->shmem.bytes + msg.phys -  BIOS_SHMEM_BASE, msg.ptr);
+	Cpu::move<2>(_vcpu.shmem.bytes + msg.phys -  BIOS_SHMEM_BASE, msg.ptr);
       // if (in_range(msg.phys, BIOS_SHMEM_BASE, 0x1000))
       // 	Logging::printf("vbios::%s(%x, %x)\n", msg.read ? "read" : "write", msg.phys, msg.ptr[0]);
       return true;
@@ -177,9 +177,9 @@ public:
   }
 
 
-  VBios(Motherboard &mb, VCpu *vcpu) : BiosCommon(mb), _vcpu(vcpu) {
-    _vcpu->executor.add(this,   VBios::receive_static<CpuMessage>);
-    _vcpu->mem.add(this,        VBios::receive_static<MessageMem>);
+  VBios(Motherboard &mb, VCpu &vcpu) : BiosCommon(mb), _vcpu(vcpu) {
+    _vcpu.executor.add(this,   VBios::receive_static<CpuMessage>);
+    _vcpu.mem.add(this,        VBios::receive_static<MessageMem>);
     _mb.bus_discovery.add(this, VBios::receive_static<MessageDiscovery>);
   }
 
@@ -250,6 +250,6 @@ PARAM_HANDLER(vbios,
 	      "vbios - create a bridge between VCPU and the BIOS bus.")
 {
   if (!mb.last_vcpu) Logging::panic("no VCPU for this VBIOS");
-  new VBios(mb, mb.last_vcpu);
+  new VBios(mb, *mb.last_vcpu);
 }
 

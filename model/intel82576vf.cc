@@ -57,20 +57,27 @@ using namespace Endian;
 
 class Model82576vf : public StaticReceiver<Model82576vf>
 {
+private:
+  /*
+   * Noncopyable
+   */
+  Model82576vf(Model82576vf const &);
+  Model82576vf &operator = (Model82576vf const &);
+
   EthernetAddr           _mac;
   DBus<MessageNetwork>  &_net;
 #include "model/simplemem.h"
   Clock                 *_clock;
   DBus<MessageTimer>    &_timer;
-  unsigned               _timer_nr;
+  unsigned               _timer_nr {0};
 
   // Guest-physical addresses for MMIO and MSI-X regs.
   uint32 _mem_mmio;
   uint32 _mem_msix;
 
   // Two pages of memory holding RX and TX registers.
-  uint32 *_local_rx_regs;	// Mapped to _mem_mmio + 0x2000
-  uint32 *_local_tx_regs;	// Mapped to _mem_mmio + 0x3000
+  uint32 *_local_rx_regs { nullptr }; // Mapped to _mem_mmio + 0x2000
+  uint32 *_local_tx_regs { nullptr }; // Mapped to _mem_mmio + 0x3000
 
   
   // TX queue polling interval in µs.
@@ -82,18 +89,19 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
   // Filtering
   const bool _promisc_default;
-  bool       _promisc;
-  Mta        _mta;
+  bool       _promisc { _promisc_default };
+  Mta        _mta {};
 
 #include <model/intel82576vfmmio.inc>
 #include <model/intel82576vfpci.inc>
 
   struct queue {
-    Model82576vf *parent;
-    unsigned n;
-    volatile uint32 *regs;
+    Model82576vf *parent  { nullptr };
+    unsigned n            { 0 };
+    volatile uint32 *regs { nullptr };
 
     virtual void reset() = 0;
+    virtual ~queue() { }
 
     void init(Model82576vf *_parent, unsigned _n, uint32 *_regs)
     {
@@ -106,7 +114,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   };
   
   struct tx_queue : queue {
-    uint32 txdctl_old;
+    uint32 txdctl_old { 0 };
 
     // The driver can program 8 different offload contexts. We buffer
     // them as-is until they are needed.
@@ -126,7 +134,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     // We use a huge buffer, because the VM may use segmentation
     // offload and put a whole TCP window worth of data here.
     uint8 packet_buf[64 * 1024];
-    unsigned packet_cur;
+    unsigned packet_cur { 0 };
 
     void reset()
     {
@@ -404,7 +412,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   };
 
   struct rx_queue : queue {
-    uint32 rxdctl_old;
+    uint32 rxdctl_old { 0 };
 
     typedef union {
       uint64 raw[2];
@@ -578,7 +586,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint32 vector_control;
     } table[3];
     uint32 raw[3*4];
-  } _msix;
+  } _msix {};
 
   unsigned _ip_address;
   EthernetAddr _guest_uses_mac;

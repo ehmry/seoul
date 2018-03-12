@@ -63,7 +63,7 @@ class Rtl8029: public StaticReceiver<Rtl8029>
     unsigned char tcr;
     unsigned char dcr;
     unsigned char imr;
-  } __attribute__((packed)) _regs;
+  } __attribute__((packed)) _regs {};
   unsigned char _mem[65536];
 #define  VMM_REGBASE "../model/rtl8029.cc"
 #include "model/reg.h"
@@ -323,6 +323,7 @@ public:
     for (unsigned i=1; i<8; i++) memcpy(_mem + 0x20*i, _mem, 0x20);
 
     // and the read-only regs
+    memset(&_regs, 0, sizeof(_regs));
     _regs.id8029 = 0x4350;
   }
 };

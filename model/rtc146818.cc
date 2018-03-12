@@ -36,14 +36,14 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
   friend class RtcTest;
   DBus<MessageTimer>    &_bus_timer;
   DBus<MessageIrqLines> &_bus_irqlines;
-  Clock                *_clock;
+  Clock                 &_clock;
   unsigned              _timer;
   unsigned short        _iobase;
   unsigned              _irq;
-  unsigned char         _index;
+  unsigned char         _index  { 0 };
   unsigned char         _ram[128];
-  timevalue             _offset;
-  timevalue             _last;
+  timevalue             _offset { 0 };
+  timevalue             _last   { 0 };
 
   /**
    * Timing:
@@ -96,7 +96,7 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
 
   timevalue get_counter()
   {
-    timevalue value = _clock->clock(1 << 30);
+    timevalue value = _clock.clock(1 << 30);
     // scale the counter with the divider
     int divider = get_divider();
     if (divider < 0)  return 0;
@@ -291,8 +291,8 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
 	// scale the next timeout with the divider
 	int divider = get_divider();
 	if (divider < 0)  return;
-	if (divider >= 15) next = _clock->abstime(next, FREQ >> (divider - 15));
-	else               next = _clock->abstime(next, FREQ << (15 - divider));
+	if (divider >= 15) next = _clock.abstime(next, FREQ >> (divider - 15));
+	else               next = _clock.abstime(next, FREQ << (15 - divider));
 
 	MessageTimer msg(_timer, next);
 	_bus_timer.send(msg);
@@ -374,7 +374,7 @@ public:
 	      if (toggled_reset)
 		{
 		  // switch from reset to non-reset mode, the next update is a half second later...
-		  _offset  = _clock->clock(FREQ) - FREQ/2;
+		  _offset  = _clock.clock(FREQ) - FREQ/2;
 		  _last    = FREQ/2; // to make sure the periodic updates are right!
 		}
 	    }
@@ -386,7 +386,7 @@ public:
 	    // enabled counting?
 	    if ((_ram[0xb] & 0x80) && ~msg.value & 0x80)
 	      // skip missed updates, but do not reset the divider chain
-	      _last = _clock->clock(FREQ);
+	      _last = _clock.clock(FREQ);
 	    // Fallthrough
 	  default:
 	    _ram[_index] = msg.value;
@@ -416,7 +416,7 @@ public:
   }
 
 
-  Rtc146818(DBus<MessageTimer> &bus_timer, DBus<MessageIrqLines> &bus_irqlines, Clock *clock, unsigned timer, unsigned short iobase, unsigned irq)
+  Rtc146818(DBus<MessageTimer> &bus_timer, DBus<MessageIrqLines> &bus_irqlines, Clock &clock, unsigned timer, unsigned short iobase, unsigned irq)
     : _bus_timer(bus_timer), _bus_irqlines(bus_irqlines), _clock(clock), _timer(timer), _iobase(iobase), _irq(irq)
   {}
 };
@@ -429,7 +429,7 @@ PARAM_HANDLER(rtc,
   if (!mb.bus_timer.send(msg0))
     Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
 
-  Rtc146818 *rtc = new Rtc146818(mb.bus_timer, mb.bus_irqlines, mb.clock(), msg0.nr, argv[0],argv[1]);
+  Rtc146818 *rtc = new Rtc146818(mb.bus_timer, mb.bus_irqlines, *mb.clock(), msg0.nr, argv[0],argv[1]);
   MessageTime msg1;
   if (!mb.bus_time.send(msg1))
     Logging::printf("could not get wallclock time!\n");

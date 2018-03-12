@@ -33,7 +33,7 @@
  * Missing: MSI, MSI-X
  * Documentation: PCI spec v.2.2
  */
-class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
+class DirectPciDevice : public StaticReceiver<DirectPciDevice>, private HostVfPci
 {
   enum {
     PCI_CFG_SPACE_DWORDS = 1024,
@@ -47,26 +47,33 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 
   Motherboard &_mb;
   unsigned  _hostbdf;
-  unsigned  _guestbdf;
-  unsigned  _irq_count;
-  unsigned *_host_irqs;
+  unsigned  _guestbdf  { 0 };
+  unsigned  _irq_count { 0 };
+  unsigned *_host_irqs { nullptr };
   MsiXTableEntry *_msix_table;
   MsiXTableEntry *_msix_host_table;
   unsigned  _cfgspace[PCI_CFG_SPACE_DWORDS];
   unsigned  _bar_count;
-  unsigned  _msi_cap;
-  bool      _msi_64bit;
-  unsigned  _msix_cap;
-  unsigned  _msix_bar;
+  unsigned  _msi_cap   { 0 };
+  bool      _msi_64bit { false };
+  unsigned  _msix_cap  { 0 };
+  unsigned  _msix_bar  { ~0U };
   struct {
     unsigned long size;
     char *   ptr;
     bool     io;
     unsigned short port;
   } _barinfo[MAX_BAR];
-  bool      _vf;
+  bool const _vf;
   unsigned  _map_mode;
 
+private:
+
+  /*
+   * Noncopyable
+   */
+  DirectPciDevice(DirectPciDevice const &);
+  DirectPciDevice &operator = (DirectPciDevice const &);
 
 public:
 
@@ -421,13 +428,14 @@ private:
 
 
   DirectPciDevice(Motherboard &mb, unsigned hbdf, unsigned guestbdf, bool assign,
-		  bool use_irqs=true, unsigned parent_bdf = 0, unsigned vf_no = 0, unsigned map_mode = MAP_MODE_SAFE)
+                  bool const use_irqs=true, unsigned parent_bdf = 0,
+                  unsigned vf_no = 0, unsigned map_mode = MAP_MODE_SAFE)
     : HostVfPci(mb.bus_hwpcicfg), _mb(mb), _hostbdf(hbdf),
       _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_hostbdf)),
+      _vf(parent_bdf != 0),
       _map_mode(map_mode)
   {
 
-    _vf = parent_bdf != 0;
     if (parent_bdf)
       _hostbdf = vf_bdf(parent_bdf, vf_no);
     _guestbdf = (guestbdf == 0) ? _hostbdf : PciHelper::find_free_bdf(mb.bus_pcicfg, guestbdf);
@@ -450,15 +458,14 @@ private:
       _cfgspace[0] = vf_device_id(parent_bdf);
       Logging::printf("Our device ID is %04x.\n", _cfgspace[0]);
       for (unsigned i = 0; i < MAX_BAR; i++)
-	_cfgspace[i + BAR0] = bases[i];
+        _cfgspace[i + BAR0] = bases[i];
     }
 
     _msi_cap  = use_irqs ? find_cap(_hostbdf, CAP_MSI) : 0;
-    _msi_64bit = false;
     _msix_cap = use_irqs ? find_cap(_hostbdf, CAP_MSIX) : 0;
-    _msix_bar = ~0;
     _irq_count = use_irqs ? 1 : 0;
-   if (_msi_cap)  {
+
+    if (_msi_cap)  {
       _irq_count = 1;
       _msi_64bit = _cfgspace[_msi_cap] & 0x800000;
       // disable MSI
@@ -478,6 +485,7 @@ private:
     for (unsigned i=0; i < _irq_count; i++)
       // XXX when do we need level?
       _host_irqs[i] = get_gsi(mb.bus_hostop, mb.bus_acpi, _hostbdf, i, false, _msix_host_table);
+
     mb.bus_pcicfg.add(this, DirectPciDevice::receive_static<MessagePciConfig>);
     mb.bus_ioin.add(this,   DirectPciDevice::receive_static<MessageIOIn>);
     mb.bus_ioout.add(this,  DirectPciDevice::receive_static<MessageIOOut>);

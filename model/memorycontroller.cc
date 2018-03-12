@@ -26,6 +26,12 @@ class MemoryController : public StaticReceiver<MemoryController>
   uintptr_t _start;
   uintptr_t _end;
 
+private:
+  /*
+   * Noncopyable
+   */
+  MemoryController(MemoryController const &);
+  MemoryController &operator = (MemoryController const &);
 
 public:
   /****************************************************/
