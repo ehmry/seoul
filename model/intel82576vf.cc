@@ -168,103 +168,104 @@ private:
       ctx[desc.idx()] = desc;
     }
 
-    void apply_segmentation(uint8 *packet, uint32 packet_len,
-			    const tx_desc &desc, bool tse)
+    void apply_segmentation(uint8 * const packet, uint32 const packet_len,
+                            tx_desc const &desc, bool const tse)
     {
-      uint32 payload_len = desc.paylen();
+      uint32 const payload_len = desc.paylen();
 
       if (!tse) {
-	// Skip segmentation if it is not requested.
-	if (payload_len != packet_len) {
-	  Logging::printf("XXX Got %x bytes, but payload size is %x. Huh? Ignoring packet.\n", packet_len, payload_len);
-	  return;
-	}
-	apply_offload(packet, payload_len, desc);
+        // Skip segmentation if it is not requested.
+        if (payload_len != packet_len) {
+          Logging::printf("XXX Got %x bytes, but payload size is %x. Huh? Ignoring packet.\n", packet_len, payload_len);
+          return;
+        }
+        apply_offload(packet, payload_len, desc);
+
         MessageNetwork m(packet, packet_len, 0);
-	parent->_net.send(m);
-      } else {
-	// TCP segmentation is a bit weird, because the payload length
-	// in the TX descriptor does not include the prototype header.
+        parent->_net.send(m);
+        return;
+      }
 
-	uint8  cc     = desc.idx();
-	const tx_desc &cur_ctx = ctx[cc];
-	uint16 tucmd  = cur_ctx.tucmd();
-        uint8  l4t    = (tucmd >> 2) & 3;
-	bool   ipv6   = ((tucmd & 2) == 0);
-	//uint8  l4len  = (cur_ctx.raw[1]>>40) & 0xFF;
-	uint16 mss    = (cur_ctx.raw[1]>>48) & 0xFFFF;
-	uint16 iplen  =  cur_ctx.raw[0];
-	uint8  maclen = (iplen >> 9) & 0xFF;
-	iplen &= 0x1FF;
-	uint32 header_len = packet_len - payload_len;
-	uint32 data_left = payload_len;
-	uint32 data_sent = 0;
+      // TCP segmentation is a bit weird, because the payload length
+      // in the TX descriptor does not include the prototype header.
 
-	if (l4t == tx_desc::L4T_SCTP) {
-	  Logging::printf("XXX SCTP segmentation?\n");
-	  return;
-	}
+      tx_desc const &cur_ctx = ctx[desc.idx()];
+      uint16  const  tucmd   = cur_ctx.tucmd();
+      uint8   const  l4t     = (tucmd >> 2) & 3;
+      bool    const  ipv6    = ((tucmd & 2) == 0);
+      //uint8  l4len  = (cur_ctx.raw[1]>>40) & 0xFF;
+      uint16  const  mss     = (cur_ctx.raw[1]>>48) & 0xFFFF;
+      uint8   const  maclen  = ((cur_ctx.raw[0] & 0xFFFF) >> 9) & 0xFF;
+      uint16  const   iplen  = cur_ctx.raw[0] & 0x1FF;
 
-	if (l4t == tx_desc::L4T_UDP) {
-	  Logging::printf("XXX UDP segmentation not implemented.\n");
-	  return;
-	}
+      if (l4t != tx_desc::L4T_TCP) {
+        Logging::printf("XXX unsupported l4t segmentation %x\n", l4t);
+        return;
+      }
 
-	uint16 &packet_ip4_id  = *reinterpret_cast<uint16 *>(packet + maclen + 4);
-	uint16 &packet_ip_len  = *reinterpret_cast<uint16 *>(packet + maclen + (ipv6 ? 4 : 2));
-	uint32 &packet_tcp_seq = *reinterpret_cast<uint32 *>(packet + maclen + iplen + 4);
-	uint8  &packet_tcp_flg = packet[maclen + iplen + 13];
-	uint8  tcp_orig_flg    = packet_tcp_flg;
+      if (packet_len < payload_len || maclen > packet_len ||
+          iplen > packet_len || packet_len - maclen < 13U + iplen) {
+        Logging::printf("segmentation error payload_len %u, packet_len %u, " "maclen %u, iplen %u\n", payload_len, packet_len, maclen, iplen);
+        return;
+      }
 
-	unsigned i = 0;
-	while (data_left > 0) {
-	  uint16 chunk_size = (data_left > mss) ? mss : data_left;
-	  data_left -= chunk_size;
-	  
-	  packet_ip_len = hton16(chunk_size + header_len - maclen);
+      uint32 const header_len = packet_len - payload_len;
+      uint32 data_left = payload_len;
+      uint32 data_sent = 0;
 
-	  if (l4t == tx_desc::L4T_TCP)
-	    packet_tcp_flg = tcp_orig_flg &
-	      ((data_left == 0) ? /* last */ 0xFF : /* intermediate: set FIN/PSH */ ~9);
+      uint8 * const ip_header = packet + maclen;
+      uint16 const ether_type = ntoh16(*reinterpret_cast<uint16 *>(ip_header - 2));
+      bool  const  ipv6_chk   = (ether_type == 0x86DD);
 
-	  // Move packet data
-	  if (data_sent != 0) memmove(packet + header_len,
-				      packet + header_len + data_sent,
-				      chunk_size);
-	  
-	  // At this point we have prepared the final packet, we just
-	  // need to fix checksums and off it goes...
-	  uint32 segment_len = header_len + chunk_size;
-	  apply_offload(packet, segment_len, desc);
-	  MessageNetwork m(packet, segment_len, 0);
-	  parent->_net.send(m);
+      if (ipv6 != ipv6_chk)
+        Logging::printf("IPv6 is not IPv6 ?\n");
 
-	  // Prepare next chunk
-	  data_sent += chunk_size;
-	  if (!ipv6) packet_ip4_id = hton16(ntoh16(packet_ip4_id) + 1);
-	  if (l4t == tx_desc::L4T_TCP) packet_tcp_seq = hton32(ntoh32(packet_tcp_seq) + chunk_size);
-	  i++;
-	}
-	//Logging::panic("INSPECT");
+      uint16 &packet_ip4_id  = *reinterpret_cast<uint16 *>(ip_header + 4);
+      uint16 &packet_ip_len  = *reinterpret_cast<uint16 *>(ip_header + (ipv6 ? 4 : 2));
+      uint32 &packet_tcp_seq = *reinterpret_cast<uint32 *>(ip_header + iplen + 4);
+      uint8  &packet_tcp_flg = packet[maclen + iplen + 13];
+      uint8  tcp_orig_flg    = packet_tcp_flg;
+
+      while (data_left > 0) {
+        uint16 const chunk_size = (data_left > mss) ? mss : data_left;
+        data_left -= chunk_size;
+
+        packet_ip_len = hton16(chunk_size + header_len - maclen);
+
+        if (l4t == tx_desc::L4T_TCP)
+          packet_tcp_flg = tcp_orig_flg &
+                           ((data_left == 0) ? /* last */ 0xFF : /* intermediate: set FIN/PSH */ ~9);
+
+        // Move packet data
+        if (data_sent != 0)
+          memmove(packet + header_len, packet + header_len + data_sent,
+                  chunk_size);
+
+        // At this point we have prepared the final packet, we just
+        // need to fix checksums and off it goes...
+        uint32 segment_len = header_len + chunk_size;
+        apply_offload(packet, segment_len, desc);
+        MessageNetwork m(packet, segment_len, 0);
+        parent->_net.send(m);
+
+        // Prepare next chunk
+        data_sent += chunk_size;
+        if (!ipv6) packet_ip4_id = hton16(ntoh16(packet_ip4_id) + 1);
+        if (l4t == tx_desc::L4T_TCP) packet_tcp_seq = hton32(ntoh32(packet_tcp_seq) + chunk_size);
       }
     }
 
-    void apply_offload(uint8 *packet, uint32 packet_len,
-                       const tx_desc &tx_desc)
+    void apply_offload(uint8 * const packet, uint32 const packet_len,
+                       tx_desc const &tx_desc)
     {
       uint8 popts = tx_desc.popts();
       // Short-Circuit return, if no interesting offloads are to be done.
       if ((popts & 7) == 0) return;
 
-      unsigned cc  = tx_desc.idx();
-      uint16 tucmd = ctx[cc].tucmd();
-      uint16 iplen = ctx[cc].iplen();
-      uint8 maclen = ctx[cc].maclen();
-
-      // Sanity check maclen and iplen. We only cover the case that is
-      // harmful to us.
-      if ((maclen+iplen > packet_len)) 
-	return;
+      unsigned const cc     = tx_desc.idx();
+      uint16   const tucmd  = ctx[cc].tucmd();
+      uint16   const iplen  = ctx[cc].iplen();
+      uint8    const maclen = ctx[cc].maclen();
 
       if ((popts & 4) != 0 /* IPSEC */) {
         Logging::printf("XXX IPsec offload requested. Not implemented!\n");
@@ -272,11 +273,24 @@ private:
         return;
       }
 
+      // Sanity check maclen and iplen. We only cover the case that is
+      // harmful to us.
+      if (maclen > packet_len || iplen > packet_len || packet_len - maclen < iplen) {
+        Logging::printf("drop packet - len issue %u\n", __LINE__);
+        return;
+      }
+
+      uint8 * const ip_header = packet + maclen;
+
       if (((popts & 1 /* IXSM     */) != 0) &&
           ((tucmd & 2 /* IPv4 CSO */) != 0)) {
-	uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(packet + maclen + 10);
-	ipv4_sum = 0;
-	ipv4_sum = IPChecksum::ipsum(packet, maclen, iplen);
+
+        if (iplen >= 12) {
+          uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(ip_header + 10);
+          ipv4_sum = 0;
+          ipv4_sum = IPChecksum::ipsum(packet, maclen, iplen);
+        } else
+         Logging::printf("drop packet - len issue %u\n", __LINE__);
       }
 
       if ((popts & 2 /* TXSM */) != 0) {
@@ -284,21 +298,52 @@ private:
         uint8 l4t = (tucmd >> 2) & 3;
 
         switch (l4t) {
-        case tx_desc::L4T_UDP:		// UDP
-        case tx_desc::L4T_TCP:		// TCP
+        case tx_desc::L4T_UDP:
+        case tx_desc::L4T_TCP:
           {
-            uint8 *l4_sum = packet + maclen + iplen + ((l4t == tx_desc::L4T_UDP) ? 6 : 16);
-            l4_sum[0] = l4_sum[1] = 0;
-            uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == tx_desc::L4T_UDP) ? 17 : 6, maclen, iplen, packet_len,
-                                               (tucmd & 2 /* IPv4 */) == 0);
-	    l4_sum[0] = sum;
-	    l4_sum[1] = sum>>8;
+            /* sanity check for ether type and protocol reading access */
+            if (maclen < 2 || iplen < 10) {
+              Logging::printf("drop packet - len issue %u\n", __LINE__);
+              break;
+            }
+
+            /* l4t doesn't provide ever the correct packet type - to it manually */
+            enum { PROTO_UDP = 17, PROTO_TCP = 6 };
+            uint16 const ether_type = ntoh16(*reinterpret_cast<uint16 *>(ip_header - 2));
+            bool  const  ipv6       = (ether_type == 0x86DD);
+            uint8        proto      = 0;
+
+            if (ether_type == 0x0800) /* IPv4 */
+                proto = *(ip_header + 9);
+            else if (ipv6)
+                proto = *(ip_header + 6);
+            else {
+              Logging::printf("unknown ether type %u\n", ether_type);
+              break;
+            }
+            if (proto != PROTO_UDP && proto != PROTO_TCP) {
+              Logging::printf("unknown protocol proto=%u type=%x\n", proto, ether_type);
+              break;
+            }
+
+            uint8 const chksum_offset = (proto == PROTO_UDP) ? 6 : 16;
+            if (packet_len - maclen - iplen < chksum_offset + 2U) {
+              Logging::printf("drop packet - len issue %u\n", __LINE__);
+              break;
+            }
+
+            uint16 * const chksum = reinterpret_cast<uint16 *>(ip_header + iplen + chksum_offset);
+
+            *chksum = 0U;
+            *chksum = IPChecksum::tcpudpsum(packet, proto, maclen, iplen,
+                                                    packet_len, ipv6);
           }
           break;
         case tx_desc::L4T_SCTP:		// SCTP
           Logging::printf("XXX SCTP CSO requested. Not implemented!\n");
           break;
         case 3:
+          Logging::printf("XXX invalid l4t\n");
           // Invalid. Nothing to be done.
           break;
         }
@@ -311,8 +356,8 @@ private:
       uint8  dcmd = desc.dcmd();
 
       if ((dcmd & (1<<5)) == 0) {
-        // Logging::printf("TX bad descriptor\n");
-	return;
+        Logging::printf("TX bad descriptor\n");
+        return;
       }
 
       enum {
@@ -340,7 +385,7 @@ private:
       packet_cur += data_len;
 
       if (dcmd & EOP) {
-	apply_segmentation(packet_buf, packet_cur, desc, (dcmd & TSE) != 0);
+        apply_segmentation(packet_buf, packet_cur, desc, (dcmd & TSE) != 0);
         packet_cur = 0;
       }
 
@@ -487,12 +532,12 @@ private:
 
       const EthernetAddr &dst = *reinterpret_cast<const EthernetAddr *>(buf);
       if (!parent->_promisc && !dst.is_broadcast() && !(dst == parent->_mac) &&
-	  // XXX Check the MTA only for multicast MACs?
-	  !parent->_mta.includes(dst)) {
-	// Logging::printf("Dropping packet to " MAC_FMT " (%04x) (" MAC_FMT ")\n",
-	//  		MAC_SPLIT(&dst), parent->_mta.hash(dst),
-	//  		MAC_SPLIT(&parent->_mac));
-	return;
+          // XXX Check the MTA only for multicast MACs?
+          !parent->_mta.includes(dst)) {
+        Logging::printf("Dropping packet to " MAC_FMT " (%04x) (" MAC_FMT ")\n",
+                        MAC_SPLIT(&dst), parent->_mta.hash(dst),
+                        MAC_SPLIT(&parent->_mac));
+        return;
       }
 
       rxdctl_poll();
@@ -505,11 +550,9 @@ private:
       uint32 rdt    = regs[RDT];
       uint32 rxdctl = regs[RXDCTL];
 
-      if (((rxdctl & (1<<25)) == 0 /* Queue disabled? */)
-	  || (rdlen == 0) || (rdt == rdh)) {
-	// Drop
-      	return;
-      }
+      if (((rxdctl & (1<<25)) == 0 /* Queue disabled? */) ||
+          (rdlen == 0) || (rdt == rdh))
+        return;
 
       //Logging::printf("RECV %08x %08x %04x %04x\n", rdbal, rdlen, rdt, rdh);
       uint64 addr = (static_cast<uint64>(rdbah)<<32 | rdbal) + ((rdh*16) % rdlen);
@@ -517,10 +560,10 @@ private:
 
       //Logging::printf("RX descriptor at %llx\n", addr);
       if (!parent->copy_in(addr, desc.raw, sizeof(desc)))
-	return;
+        return;
 
       // Which descriptor type?
-      uint8 desc_type = (srrctl >> 25) & 0xF;
+      uint8 const desc_type = (srrctl >> 25) & 0xF;
       switch (desc_type) {
       case 0:			// Legacy
        	{
@@ -703,25 +746,29 @@ private:
 	Logging::printf("VF_RESET " MAC_FMT "\n", MAC_SPLIT(&_mac));
 	break;
       case VF_SET_MAC_ADDR:
-	rVFMBX0 |= CMD_ACK;
-	_mac.raw = static_cast<uint64>(rVFMBX2 & 0xFFFF) << 32 | rVFMBX1;
-	Logging::printf("VF_SET_MAC " MAC_FMT "\n", MAC_SPLIT(&_mac));
-	break;
+        rVFMBX0 |= CMD_ACK | CTS;
+
+        if (rVFMBX0 & 0x10000) // ignore vf mac filter add
+          break;
+
+        _mac.raw = static_cast<uint64>(rVFMBX2 & 0xFFFF) << 32 | rVFMBX1;
+        Logging::printf("VF_SET_MAC " MAC_FMT "\n", MAC_SPLIT(&_mac));
+        break;
       case VF_SET_MULTICAST: {
-	uint8 count = (rVFMBX0 >> 16) & 0xFF;
-	Logging::printf("VF_SET_MULTICAST %08x (%u) %08x\n",
-			rVFMBX0, count, rVFMBX1);
+        uint8 count = (rVFMBX0 >> 16) & 0xFF;
+        Logging::printf("VF_SET_MULTICAST %08x (%u) %08x\n",
+                        rVFMBX0, count, rVFMBX1);
 
-	// Linux never sends more than 30 hashes.
-	if (count > 30) count = 30;
+        // Linux never sends more than 30 hashes.
+        if (count > 30) count = 30;
 
-	_mta.clear();
-	uint16 *hash = reinterpret_cast<uint16 *>(&rVFMBX1);
-	for (unsigned i = 0; i < count; i++) {
-	  _mta.set(hash[i]);
-	}
+        _mta.clear();
+        uint16 *hash = reinterpret_cast<uint16 *>(&rVFMBX1);
+        for (unsigned i = 0; i < count; i++) {
+          _mta.set(hash[i]);
+        }
 
-	rVFMBX0 |= CMD_ACK | CTS;
+        rVFMBX0 |= CMD_ACK | CTS;
       }
 	break;
       case VF_SET_PROMISC:
