@@ -105,7 +105,7 @@ public:
 	_vcpu.params_used = 1;
       }
       else if (number == _vcpu.params_used) {
-	StackFrame *frame = reinterpret_cast<StackFrame *>(_vcpu.shmem.bytes + (_vcpu.shmem.params[0].dst.seg << 4) + _vcpu.shmem.params[0].dst.ofs - BIOS_SHMEM_BASE);
+	StackFrame *frame = reinterpret_cast<StackFrame *>(_vcpu.shmem.bytes + (_vcpu.shmem.params[0].dst.seg << 4) + _vcpu.shmem.params[0].dst.ofs);
 	MessageBios msg1(&_vcpu, &_shadowcpu, frame->irq - 1);
 	//Logging::printf("BIOS(%x) num %d ofs %x:%x eax %x ecx %x\n", frame->irq, number, _vcpu.shmem.params[0].dst.seg, _vcpu.shmem.params[0].dst.ofs, frame->eax, frame->ecx);
 
