@@ -55,6 +55,8 @@ using namespace Endian;
 // - scatter/gather support in MessageNetwork to avoid packet copy in
 //   TX path.
 
+enum { MAP_OFFSET = 0x2000 };
+
 class Model82576vf : public StaticReceiver<Model82576vf>
 {
 private:
@@ -76,8 +78,8 @@ private:
   uint32 _mem_msix;
 
   // Two pages of memory holding RX and TX registers.
-  uint32 *_local_rx_regs { nullptr }; // Mapped to _mem_mmio + 0x2000
-  uint32 *_local_tx_regs { nullptr }; // Mapped to _mem_mmio + 0x3000
+  uint32 *_local_rx_regs; // Mapped to _mem_mmio + MAP_OFFSET
+  uint32 *_local_tx_regs; // Mapped to _mem_mmio + MAP_OFFSET + 0x1000
 
   
   // TX queue polling interval in µs.
@@ -993,8 +995,8 @@ public:
       if (msg.write) {
           msg.bytes = bytes + 2 * 0x1000;
           memcpy(msg.space, reinterpret_cast<void*>(&_mac), bytes);
-          memcpy(msg.space + bytes, reinterpret_cast<void*>(_local_rx_regs), 0x1000);
-          memcpy(msg.space + bytes + 0x1000, reinterpret_cast<void*>(_local_tx_regs), 0x1000);
+          memcpy(msg.space + bytes, _local_rx_regs, 0x1000);
+          memcpy(msg.space + bytes + 0x1000, _local_tx_regs, 0x1000);
       }
       else {
           uint32 *local_rx_regs = _local_rx_regs;
@@ -1036,11 +1038,14 @@ public:
   Model82576vf(uint64 mac, DBus<MessageNetwork> &net,
 	       DBus<MessageMem> *bus_mem, DBus<MessageMemRegion> *bus_memregion,
 	       Clock *clock, DBus<MessageTimer> &timer,
-	       uint32 mem_mmio, uint32 mem_msix, unsigned txpoll_us, bool map_rx, unsigned bdf,
+	       uint32 mem_mmio, uint32 * local_rx_regs,
+	       uint32 mem_msix,
+	       unsigned txpoll_us, bool map_rx, unsigned bdf,
 	       bool promisc_default)
     : _mac(mac), _net(net), _bus_memregion(bus_memregion), _bus_mem(bus_mem),
       _clock(clock), _timer(timer),
       _mem_mmio(mem_mmio), _mem_msix(mem_msix),
+      _local_rx_regs(local_rx_regs), _local_tx_regs(_local_rx_regs + 1024),
       _txpoll_us(txpoll_us), _map_rx(map_rx), _bdf(bdf),
       _promisc_default(promisc_default), _ip_address(0), _guest_uses_mac(0),
       processed(false)
@@ -1049,11 +1054,9 @@ public:
 		    mem_mmio, mem_msix);
 
     // Init queues
-    _local_rx_regs = new (Aligned(4096)) uint32[1024];
     _rx_queues[0].init(this, 0, _local_rx_regs);
     _rx_queues[1].init(this, 1, _local_rx_regs + 0x100/4);
 
-    _local_tx_regs = new (Aligned(4096)) uint32[1024];
     _tx_queues[0].init(this, 0, _local_tx_regs);
     _tx_queues[1].init(this, 1, _local_tx_regs + 0x100/4);
 
@@ -1079,10 +1082,16 @@ PARAM_HANDLER(intel82576vf,
   MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0UL);
   if (!mb.bus_hostop.send(msg)) Logging::panic("Could not get a MAC address");
 
+  uint32 mem_mmio = (argv[1] == ~0UL) ? 0xF7CE0000 : argv[1];
+
+  MessageHostOp msg_mmio(MessageHostOp::OP_ALLOC_IOMEM, mem_mmio + MAP_OFFSET, 2*0x1000);
+  if (!mb.bus_hostop.send(msg_mmio) || !msg_mmio.ptr)
+    Logging::panic("can not allocate IOMEM region %lx+%zx", msg_mmio.value, msg_mmio.len);
+
   Model82576vf *dev = new Model82576vf(hton64(msg.mac) >> 16,
 				       mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
 				       mb.clock(), mb.bus_timer,
-				       (argv[1] == ~0UL) ? 0xF7CE0000 : argv[1],
+				       mem_mmio, reinterpret_cast<uint32 *>(msg_mmio.ptr),
 				       (argv[2] == ~0UL) ? 0xF7CC0000 : argv[2],
 				       (argv[3] == ~0UL) ? 0 : argv[3],
 				       argv[4],
