@@ -17,7 +17,7 @@
  */
 
 #include "nul/motherboard.h"
-#include "service/elf.h"
+#include "service/multiboot.h"
 #include "executor/bios.h"
 
 
@@ -33,7 +33,6 @@ class VirtualBiosMultiboot : public StaticReceiver<VirtualBiosMultiboot>, BiosCo
 public:
   enum mbi_enum
     {
-      MBI_MAGIC                  = 0x2badb002,
       MBI_FLAG_MEM               = 1 << 0,
       MBI_FLAG_CMDLINE           = 1 << 2,
       MBI_FLAG_MODS              = 1 << 3,
@@ -97,7 +96,8 @@ private:
     size_t memsize = msg1.len;
     size_t offset = _modaddr;
     unsigned long mbi = 0;
-    Mbi *m = 0;
+    Multiboot::Info *m = 0;
+    Multiboot::multiboot_uint32_t mb_flags = 0;
 
     // get modules from sigma0
     for (unsigned modcount = 0; ; modcount++)
@@ -109,11 +109,11 @@ private:
 	switch(modcount)
 	  {
 	  case 0:
-	    if (Elf::decode_elf(msg2.start, msg2.size, physmem, rip, offset, memsize, 0, 0)) return 0;
+	    if (Multiboot::load_multiboot(msg2.start, msg2.size, physmem, rip, offset, memsize, 0, 0, mb_flags)) return 0;
 	    offset = (offset + 0xfff) & ~0xffful;
 	    mbi = offset;
-	    offset += 0x1000;
-	    m = reinterpret_cast<Mbi*>(physmem + mbi);
+	    offset += Multiboot::MOD_ALIGN;
+	    m = reinterpret_cast<Multiboot::Info*>(physmem + mbi);
 	    if (offset > memsize)  return 0;
 	    memset(m, 0, sizeof(*m));
 	    memmove(physmem + offset, msg2.cmdline, msg2.cmdlen);
@@ -172,10 +172,11 @@ private:
 
     msg.cpu->clear();
     msg.cpu->eip      = rip;
-    msg.cpu->eax      = 0x2badb002;
+    msg.cpu->eax      = Multiboot::BOOTLOADER_MAGIC;
     msg.cpu->ebx      = mbi;
     msg.cpu->cr0      = 0x11;
     msg.cpu->cs.ar    = 0xc9b;
+    msg.cpu->cs.base  = 0x0;
     msg.cpu->cs.limit = 0xffffffff;
     msg.cpu->ss.ar    = 0xc93;
     msg.cpu->efl      = 2;
@@ -190,6 +191,10 @@ private:
     msg.cpu->tsc_off  = tsc_off;
 
     msg.mtr_out       = MTD_ALL & ~MTD_TSC;
+
+    Logging::printf(">\t%s rip %x ilen %zx cr0 %zx efl %zx\n", __PRETTY_FUNCTION__,
+		    msg.cpu->eip, size_t(msg.cpu->inst_len), size_t(msg.cpu->cr0), size_t(msg.cpu->efl));
+
     return true;
   }
 
