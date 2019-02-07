@@ -41,7 +41,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   unsigned char _status;
   unsigned char _error;
   unsigned _dsf[7];
-  unsigned _splits[32];
+  unsigned _splits[33];
   DiskParameter _params;
   static unsigned const DMA_DESCRIPTORS = 64;
   DmaDescriptor _dma[DMA_DESCRIPTORS];
@@ -177,7 +177,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
     if (!_dsf[3]) return 0;
     uintptr_t prdbase = union64(_dsf[2], _dsf[1]);
 
-    assert(_dsf[6] < 32);
+    assert(_dsf[6] < sizeof(_splits)/sizeof(_splits[0]));
     assert(_splits[_dsf[6]] == 0);
 
     size_t prd = 0;
@@ -396,7 +396,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 
   bool receive(MessageDiskCommit &msg)
   {
-    if (msg.disknr != _hostdisk || msg.usertag > 32) return false;
+    if (msg.disknr != _hostdisk || msg.usertag >= sizeof(_splits)/sizeof(_splits[0])) return false;
     // we are done
     _status = _status & ~0x8;
     assert(_splits[msg.usertag]);
