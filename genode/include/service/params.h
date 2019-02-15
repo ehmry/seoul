@@ -37,7 +37,7 @@ class Parameter : public Genode::Fifo<Parameter>::Element {
 
   Parameter(const char *name, ParameterFn func) : name(name), func(func)
   {
-    all_parameters().enqueue(this);
+    all_parameters().enqueue(*this);
   }
 };
 
@@ -57,6 +57,7 @@ class Parameter : public Genode::Fifo<Parameter>::Element {
 
 #define PARAM_ITER(p)                                               \
   Parameter ** p; Parameter * pp;                                    \
-  for (pp = Parameter::all_parameters().dequeue(), p = &pp; !Parameter::all_parameters().empty(); pp = Parameter::all_parameters().dequeue(), p = &pp)
+  Parameter::all_parameters().head([&] (Parameter &h) { pp = &h; });  \
+  for (p = &pp; pp; pp = pp->next(), p = &pp)
 
 #define PARAM_DEREF(p) (*(*(p)))
