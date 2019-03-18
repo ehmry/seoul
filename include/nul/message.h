@@ -344,7 +344,10 @@ struct MessageInput
 {
   unsigned device;
   unsigned data;
-  MessageInput(unsigned _device=0, unsigned _data=0) : device(_device), data(_data) {}
+  unsigned data2;
+
+  MessageInput(unsigned _device=0, unsigned _data=0, unsigned _data2=0)
+  : device(_device), data(_data), data2(_data2) { }
 };
 
 

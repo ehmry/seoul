@@ -24,7 +24,7 @@
  *
  * State: stable
  * Features: mouse commands including poll mode, scaling, packet merging, resolution adaption
- * Missing:  different sample rate, packet resend, z-coordinate
+ * Missing:  different sample rate, packet resend
  * Documentation: PS2 hitrc, PS2 Mouse Interface, Trackpoint Engineering Specification 3E
  */
 class PS2Mouse : public StaticReceiver<PS2Mouse>
@@ -48,6 +48,8 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
   unsigned char _samplerate { 0 };
   int _posx { 0 };
   int _posy { 0 };
+  int _posz { 0 };
+
   enum Params
   {
     PARAM_NONE,
@@ -98,9 +100,9 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
   /**
    * Generate a packet and update the stored positions
    */
-  unsigned gen_packet(bool report)
+  unsigned long long gen_packet(bool report)
   {
-    unsigned value;
+    unsigned long long value;
 
     _posx = scale_coord(report, _posx);
     _posy = scale_coord(report, _posy);
@@ -110,19 +112,24 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
     bool ovy = _posy > 255 || _posy < -256;
 
     // correctly report overflows
-    value = (ovy ? 0x8000 : 0) | (ovx ? 0x4000 : 0) | (negy ? 0x2000 : 0) | (negx ? 0x1000 : 0) | ((_status & 0xf) << 8) | 0x3;
+    value = (ovy ? 0x8000 : 0) | (ovx ? 0x4000 : 0) | (negy ? 0x2000 : 0) | (negx ? 0x1000 : 0) | ((_status & 0xf) << 8) | 0x4;
 
     // upper limit movements
     _posx = ovx ? (negx ? -256 : 255) : _posx;
     _posy = ovy ? (negy ? -256 : 255) : _posy;
 
     // calc values
-    value |= (_posx & 0xff) << 16;
-    value |= (_posy & 0xff) << 24;
+    value |= (unsigned long long)(_posx & 0xff) << 16;
+    value |= (unsigned long long)(_posy & 0xff) << 24;
+
+    // wheel
+    value |= (unsigned long long)_posz << 32;
 
     // the movement counters are reset when getting a packet
     _posx = 0;
     _posy = 0;
+    _posz = 0;
+
     return value;
   }
 
@@ -154,6 +161,7 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
     // we ignore the overflow bit as everybody does
     _posx += ((msg.data >> 16) & 0xff) - ((msg.data >> 4) & 0x100);
     _posy += ((msg.data >> 24) & 0xff) - ((msg.data >> 5) & 0x100);
+    _posz  = -msg.data2 & 0xff;
     _status = (_status & 0xf8) | ((msg.data >> 8) & 0x7);
     update_packet();
 
@@ -169,7 +177,7 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
       {
 	switch (_packet & 0xff)
 	  {
-	  case 1 ... 3:
+	  case 1 ... 4:
 	    msg.value = (_packet >> 8) & 0xff;
 	    _packet = ((_packet >> 8) & ~0xffULL)  | ((_packet & 0xff) - 1);
 	    res = true;
@@ -235,7 +243,7 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
 		_status |= STATUS_REMOTE;
 		break;
 	      case 0xf2: // read id
-		packet = 0x00fa02;
+		packet = 0x00fa02 | (0x3 << 16);
 		break;
 	      case 0xf3: // set sample rate
 		_param = PARAM_SET_SAMPLERATE;
