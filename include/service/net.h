@@ -123,6 +123,13 @@ protected:
   }
 
 #ifdef __SSE2__
+  static inline bool ssse3_supported()
+  {
+    uint32 cpuid = 1, edx = 0, ebx = 0, ecx = 0;
+    Cpu::cpuid(cpuid, ebx, ecx, edx);
+    return (ecx >> 9) & 0x1;
+  }
+
   static inline __attribute__((always_inline))  __m128i
   sse_step(__m128i sum, __m128i v1, __m128i v2, __m128i z)
   {
@@ -137,12 +144,17 @@ protected:
   static inline  __attribute__((always_inline)) uint32
   sse_final(__m128i sum, __m128i z, bool odd)
   {
+    static bool const ssse3 = ssse3_supported();
+
     /* Add top to bottom 64-bit word */
     sum = _mm_add_epi64(sum, _mm_srli_si128(sum, 8));
     
     /* Add low two 32-bit words */
 #ifdef __SSSE3__
-    sum = _mm_hadd_epi32(sum, z);
+    if (ssse3)
+      sum = _mm_hadd_epi32(sum, z);
+    else
+      sum = _mm_add_epi32(sum, _mm_srli_si128(sum, 4));
 #else  // No SSSE3
 #warning SSSE3 not available
     sum = _mm_add_epi32(sum, _mm_srli_si128(sum, 4));
