@@ -117,7 +117,7 @@ template<unsigned operand_size> static void move(void *tmp_dst, void *tmp_src) {
 int helper_HLT ()    { return send_message(CpuMessage::TYPE_HLT); }
 int helper_WBINVD () { return send_message(CpuMessage::TYPE_WBINVD); }
 int helper_INVD ()   { return send_message(CpuMessage::TYPE_INVD); }
-int helper_CLTS()    { _cpu->cr0 &= ~(1<<3); return _fault; }
+int helper_CLTS()    { _cpu->cr0 &= ~(1UL<<3); _mtr_out |= MTD_CR; return _fault; }
 int helper_INT3() {  _oeip = _cpu->eip; _mtr_out |= MTD_RIP_LEN; return _fault = 0x80000603; }
 int helper_UD2A() {  return _fault = 0x80000606; }
 int helper_INTO() {  _oeip = _cpu->eip; _mtr_out |= MTD_RIP_LEN; if (_cpu->efl & EFL_OF) _fault = 0x80000604; return _fault; }
