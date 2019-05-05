@@ -141,6 +141,9 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 	(&cpu->sysenter_cs)[cpu->ecx - 0x174] = cpu->edx_eax();
 	msg.mtr_out |= MTD_SYSENTER;
 	break;
+      case 0x1d9: /* debug ctl - unsupported */
+        dprintf("unsupported wrmsr debug ctl\n");
+        break;
       default:
 	dprintf("unsupported wrmsr %x <-(%x:%x) at %x\n",  cpu->ecx, cpu->edx, cpu->eax, cpu->eip);
 	GP0(msg);
